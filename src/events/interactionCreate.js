@@ -12,7 +12,7 @@ module.exports = async (client, interaction) => {
       if (handled) return;
     }
 
-    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) {
+    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu()) {
       await client.dashboardHandler.handleSelectMenu(interaction);
       return;
     }
@@ -28,7 +28,7 @@ module.exports = async (client, interaction) => {
     return;
   }
 
-  const config = db.prepare('SELECT category_id, logs_id FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
+  const config = db.prepare('SELECT * FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
   if (!config) {
     await interaction.reply({ embeds: [errorEmbed('Ticket System Not Setup', 'Run !ticketsetup first to initialize tickets.')], ephemeral: true });
     return;
@@ -49,10 +49,17 @@ module.exports = async (client, interaction) => {
       return;
     }
 
-    const staffRoles = interaction.guild.roles.cache.filter((role) =>
-      role.permissions.has(PermissionFlagsBits.ManageRoles) || role.permissions.has(PermissionFlagsBits.Administrator)
-    );
+    const configRoleIds = [];
+    try {
+      const parsedRoles = JSON.parse(config.support_role_ids || '[]');
+      if (Array.isArray(parsedRoles)) {
+        configRoleIds.push(...parsedRoles);
+      }
+    } catch {
+      // ignore invalid JSON
+    }
 
+    const supportRoles = interaction.guild.roles.cache.filter((role) => configRoleIds.includes(role.id));
     const overwrites = [
       {
         id: interaction.guild.roles.everyone,
@@ -68,7 +75,7 @@ module.exports = async (client, interaction) => {
       },
     ];
 
-    staffRoles.each((role) => {
+    supportRoles.each((role) => {
       overwrites.push({
         id: role.id,
         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],

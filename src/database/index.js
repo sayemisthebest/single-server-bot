@@ -193,6 +193,7 @@ function initializeDatabase() {
       category_id TEXT,
       panel_id TEXT,
       logs_id TEXT,
+      support_role_ids TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
