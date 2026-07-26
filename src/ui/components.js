@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType } = require('discord.js');
 
 function createMainButtons() {
   return new ActionRowBuilder().addComponents(
@@ -85,14 +85,13 @@ function createLogsExportButton() {
   );
 }
 
-function createRoleSelect(roleOptions, customId) {
+function createRoleSelect(customId) {
   return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
+    new RoleSelectMenuBuilder()
       .setCustomId(customId)
       .setPlaceholder('Select a role')
       .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(roleOptions),
+      .setMaxValues(1),
   );
 }
 

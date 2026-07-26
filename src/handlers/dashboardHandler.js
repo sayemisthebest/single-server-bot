@@ -147,31 +147,22 @@ class DashboardHandler {
   }
 
   async handleRoleAdd(interaction) {
-    const roleOptions = interaction.guild.roles.cache
-      .filter((role) => role.name !== '@everyone')
-      .map((role) => ({ label: role.name, value: role.id }));
     await interaction.update({ content: 'Select a role to add from the menu.', embeds: [], components: [
-      require('../ui/components').createRoleSelect(roleOptions, 'role_select_add'),
+      require('../ui/components').createRoleSelect('role_select_add'),
       require('../ui/components').createNavigationButtons(),
     ] });
   }
 
   async handleRoleRemove(interaction) {
-    const roleOptions = interaction.guild.roles.cache
-      .filter((role) => role.name !== '@everyone')
-      .map((role) => ({ label: role.name, value: role.id }));
     await interaction.update({ content: 'Select a role to remove from the menu.', embeds: [], components: [
-      require('../ui/components').createRoleSelect(roleOptions, 'role_select_remove'),
+      require('../ui/components').createRoleSelect('role_select_remove'),
       require('../ui/components').createNavigationButtons(),
     ] });
   }
 
   async handleRoleExport(interaction) {
-    const roleOptions = interaction.guild.roles.cache
-      .filter((role) => role.name !== '@everyone')
-      .map((role) => ({ label: role.name, value: role.id }));
     await interaction.update({ content: 'Select a role to export from the menu.', embeds: [], components: [
-      require('../ui/components').createRoleSelect(roleOptions, 'role_select_export'),
+      require('../ui/components').createRoleSelect('role_select_export'),
       require('../ui/components').createNavigationButtons(),
     ] });
   }
@@ -305,16 +296,14 @@ class DashboardHandler {
 
     if (session.followUp.type === 'role_add') {
       const command = require('../commands/roles/roleadd');
-      const fakeMessage = Object.assign(message, { content: `!roleadd <@&${session.followUp.roleId}>` });
-      await command.execute(fakeMessage, []);
+      await command.execute(message, [session.followUp.roleId]);
       delete session.followUp;
       return;
     }
 
     if (session.followUp.type === 'role_remove') {
       const command = require('../commands/roles/roleremove');
-      const fakeMessage = Object.assign(message, { content: `!roleremove <@&${session.followUp.roleId}>` });
-      await command.execute(fakeMessage, []);
+      await command.execute(message, [session.followUp.roleId]);
       delete session.followUp;
       return;
     }

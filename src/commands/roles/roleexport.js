@@ -14,7 +14,14 @@ module.exports = {
       return;
     }
 
-    const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]?.replace(/[<@&>]/g, ''));
+    let role = null;
+    if (message.mentions?.roles?.first) {
+      role = message.mentions.roles.first();
+    }
+    if (!role) {
+      const roleId = typeof args[0] === 'string' ? args[0].replace(/[<@&>]/g, '') : args[0];
+      role = message.guild.roles.cache.get(roleId);
+    }
     if (!role) {
       await message.reply({ embeds: [errorEmbed('Invalid Role', 'Please mention a valid role.')] });
       return;
