@@ -21,6 +21,13 @@ module.exports = {
     if (!role) {
       const roleId = typeof args[0] === 'string' ? args[0].replace(/[<@&>]/g, '') : args[0];
       role = message.guild.roles.cache.get(roleId);
+      if (!role && roleId) {
+        try {
+          role = await message.guild.roles.fetch(roleId);
+        } catch {
+          role = null;
+        }
+      }
     }
     if (!role) {
       await message.reply({ embeds: [errorEmbed('Invalid Role', 'Please mention a valid role.')] });

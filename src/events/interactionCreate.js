@@ -1,5 +1,5 @@
 const { db } = require('../database');
-const { PermissionFlagsBits, ChannelType } = require('discord.js');
+const { PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { successEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
 const logger = require('../utils/logger');
 
@@ -34,7 +34,17 @@ module.exports = async (client, interaction) => {
     return;
   }
 
-  if (interaction.customId === 'open_ticket') {
+  if (interaction.customId === 'open_ticket' || interaction.customId === 'ticket_close_button') {
+    if (interaction.customId === 'ticket_close_button') {
+      if (!interaction.channel || !interaction.channel.name.includes('ticket')) {
+        await interaction.reply({ embeds: [errorEmbed('Invalid Ticket', 'This button can only be used inside a ticket channel.')], ephemeral: true });
+        return;
+      }
+      await interaction.reply({ embeds: [successEmbed('Ticket Closed', 'The ticket has been closed.')], ephemeral: true });
+      await interaction.channel.send({ content: 'This ticket has been closed by staff.' });
+      return;
+    }
+
     const category = interaction.guild.channels.cache.get(config.category_id);
     if (!category || category.type !== ChannelType.GuildCategory) {
       await interaction.reply({ embeds: [errorEmbed('Ticket Category Missing', 'The ticket category could not be found.')] , ephemeral: true});
@@ -91,7 +101,14 @@ module.exports = async (client, interaction) => {
       permissionOverwrites: overwrites,
     });
 
-    await channel.send({ embeds: [successEmbed('Ticket Opened', `Welcome ${interaction.user}. A staff member will join soon.`)] });
+    const closeButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('ticket_close_button')
+        .setLabel('Close Ticket')
+        .setStyle(ButtonStyle.Danger),
+    );
+
+    await channel.send({ embeds: [successEmbed('Ticket Opened', `Welcome ${interaction.user}. A staff member will join soon.`)], components: [closeButton] });
     await interaction.reply({ embeds: [successEmbed('Ticket Created', `Your ticket has been opened: ${channel}`)], ephemeral: true });
 
     if (config.logs_id) {

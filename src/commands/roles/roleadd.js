@@ -26,7 +26,14 @@ module.exports = {
     }
 
     const roleId = args[0]?.toString().replace(/[<@&>]/g, '');
-    const role = message.mentions.roles?.first?.() || message.guild.roles.cache.get(roleId) || message.guild.roles.cache.find((r) => r.name.toLowerCase() === args[0]?.toString().toLowerCase());
+    let role = message.mentions.roles?.first?.() || message.guild.roles.cache.get(roleId) || message.guild.roles.cache.find((r) => r.name.toLowerCase() === args[0]?.toString().toLowerCase());
+    if (!role && roleId) {
+      try {
+        role = await message.guild.roles.fetch(roleId);
+      } catch {
+        role = null;
+      }
+    }
     if (!role) {
       await message.reply({ embeds: [errorEmbed('Invalid Role', 'Please mention a valid role or select a role from the panel.')] });
       return;
