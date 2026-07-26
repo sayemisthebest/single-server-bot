@@ -19,6 +19,8 @@ const client = new Client({
 const commandHandler = new CommandHandler(client);
 const DashboardHandler = require('./handlers/dashboardHandler');
 client.dashboardHandler = new DashboardHandler(client);
+const messageManager = require('./modules/messageManagement');
+client.messageManager = messageManager;
 
 client.once('ready', async () => {
   logger.info('Bot Ready');
@@ -41,6 +43,7 @@ client.on('messageCreate', async (message) => {
   await messageCreateModule(client, message);
   if (!message.author.bot) {
     await client.dashboardHandler.handleFollowUpMessage(message);
+    await client.messageManager.handleFollowUpMessage(message);
   }
   if (message.content.startsWith(PREFIX) && !message.author.bot) {
     await commandHandler.handle(message);

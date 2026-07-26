@@ -11,6 +11,8 @@ function createMainButtons() {
 function createSecondaryButtons() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('dashboard_settings').setLabel('Settings').setStyle(ButtonStyle.Secondary).setEmoji('⚙️'),
+    new ButtonBuilder().setCustomId('dashboard_message_management').setLabel('Message Management').setStyle(ButtonStyle.Danger).setEmoji('🗑️'),
+    new ButtonBuilder().setCustomId('dashboard_direct_messages').setLabel('Direct Messages').setStyle(ButtonStyle.Primary).setEmoji('📨'),
     new ButtonBuilder().setCustomId('dashboard_exports').setLabel('Exports').setStyle(ButtonStyle.Primary).setEmoji('📁'),
     new ButtonBuilder().setCustomId('dashboard_help').setLabel('Help').setStyle(ButtonStyle.Success).setEmoji('❓'),
   );

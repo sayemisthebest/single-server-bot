@@ -10,14 +10,18 @@ module.exports = async (client, interaction) => {
     if (interaction.isButton()) {
       const handled = await client.dashboardHandler.handleInteraction(interaction);
       if (handled) return;
+      const mgHandled = await client.messageManager.handleInteraction(interaction);
+      if (mgHandled) return;
     }
 
     if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu()) {
-      await client.dashboardHandler.handleSelectMenu(interaction);
-      return;
+      const handled = await client.dashboardHandler.handleSelectMenu(interaction);
+      if (handled) return;
+      const mgHandled = await client.messageManager.handleInteraction(interaction);
+      if (mgHandled) return;
     }
 
-    if (!interaction.isButton()) return;
+    if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isChannelSelectMenu()) return;
   } catch (error) {
     logger.error(`Interaction error: ${error.stack || error.message}`);
     if (interaction.replied || interaction.deferred) {

@@ -5,9 +5,14 @@ const { createTicketEmbed, getTicketComponents } = require('../ui/tickets');
 const { createSettingsEmbed, getSettingsComponents } = require('../ui/settings');
 const { createExportEmbed, getExportComponents } = require('../ui/exports');
 const { createHelpEmbed, getHelpComponents } = require('../ui/help');
+const { createDirectMessagesEmbed, getDirectMessageComponents } = require('../ui/directMessages');
+const { createMessageManagementEmbed, getMessageManagementComponents } = require('../ui/messageManagement');
 const { hasStaffPermission } = require('../utils/permissions');
 const { db } = require('../database');
 const { errorEmbed } = require('../utils/embeds');
+const { PREFIX } = require('../config/constants');
+const dmManager = require('../modules/directMessages/dmManager');
+const messageManager = require('../modules/messageManagement/messageManager');
 const logger = require('../utils/logger');
 
 class DashboardHandler {
@@ -62,7 +67,7 @@ class DashboardHandler {
 
   async handleInteraction(interaction) {
     const session = this.getSession(interaction.user.id);
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session || (session.messageId !== interaction.message.id && session.followUp?.messageId !== interaction.message.id)) {
       return false;
     }
 
@@ -87,13 +92,22 @@ class DashboardHandler {
       case 'dashboard_help':
         await interaction.update({ embeds: [createHelpEmbed()], components: getHelpComponents() });
         return true;
+      case 'dashboard_direct_messages':
+        await interaction.update({ embeds: [createDirectMessagesEmbed()], components: getDirectMessageComponents() });
+        return true;
+      case 'dashboard_message_management':
+        await interaction.update({ embeds: [createMessageManagementEmbed()], components: getMessageManagementComponents() });
+        return true;
       case 'dashboard_home':
+        if (session.followUp) delete session.followUp;
         await interaction.update({ embeds: [createDashboardEmbed(interaction.guild, this.client)], components: createDashboardComponents() });
         return true;
       case 'dashboard_back':
+        if (session.followUp) delete session.followUp;
         await interaction.update({ embeds: [createDashboardEmbed(interaction.guild, this.client)], components: createDashboardComponents() });
         return true;
       case 'dashboard_close':
+        if (session.followUp) delete session.followUp;
         await interaction.update({ embeds: [errorEmbed('Dashboard Closed', 'The dashboard session has been closed.')], components: [] });
         this.sessions.delete(interaction.user.id);
         return true;
@@ -129,6 +143,18 @@ class DashboardHandler {
         return true;
       case 'ticket_transcript':
         await this.handleTicketTranscript(interaction);
+        return true;
+      case 'dm_single':
+        await this.handleDirectMessageSingle(interaction);
+        return true;
+      case 'dm_mass':
+        await this.handleDirectMessageMass(interaction);
+        return true;
+      case 'dm_confirm':
+        await this.handleDirectMessageConfirm(interaction);
+        return true;
+      case 'dm_cancel':
+        await this.handleDirectMessageCancel(interaction);
         return true;
       case 'settings_staff_channel':
       case 'settings_logs_channel':
@@ -207,6 +233,80 @@ class DashboardHandler {
     await interaction.followUp({ content: 'Please use !tickettranscript inside the ticket channel to generate a transcript.', ephemeral: true });
   }
 
+  startDMWorkflow(userId, channelId, guildId, followUpState) {
+    let session = this.sessions.get(userId);
+    if (!session) {
+      session = {
+        userId,
+        messageId: null,
+        channelId,
+        guildId,
+        lastInteraction: Date.now(),
+        state: 'dashboard',
+      };
+    }
+    session.followUp = followUpState;
+    session.channelId = channelId;
+    session.guildId = guildId;
+    if (followUpState && followUpState.messageId) {
+      session.messageId = followUpState.messageId;
+    }
+    this.sessions.set(userId, session);
+    this.updateSession(userId);
+  }
+
+  updateSessionMessageId(userId, messageId) {
+    const session = this.sessions.get(userId);
+    if (!session) return;
+    session.messageId = messageId;
+  }
+
+  async handleDirectMessageSingle(interaction) {
+    await interaction.update({ content: 'Mention a user or paste a user ID in this channel to send them a DM.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+    this.startDMWorkflow(interaction.user.id, interaction.channel.id, interaction.guild.id, { type: 'dm_single_recipient' });
+  }
+
+  async handleDirectMessageMass(interaction) {
+    await interaction.update({ content: 'Mention a role, use @everyone, or paste user IDs to determine recipients.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+    this.startDMWorkflow(interaction.user.id, interaction.channel.id, interaction.guild.id, { type: 'dm_mass_recipients' });
+  }
+
+  async handleDirectMessageConfirm(interaction) {
+    const session = this.sessions.get(interaction.user.id);
+    if (!session?.followUp || session.followUp.type !== 'dm_confirm') {
+      await interaction.reply({ content: 'No active direct message workflow found.', ephemeral: true });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    const { recipients, content, attachments, label, mode } = session.followUp;
+    const sessionId = `${interaction.user.id}-${Date.now()}`;
+    await interaction.editReply({ content: `Sending ${mode === 'mass' ? 'mass' : 'single'} DM to ${recipients.length} recipient(s)...` });
+
+    const results = await dmManager.sendDirectMessages(this.client, interaction.user, recipients, content, attachments, async (progress) => {
+      await interaction.editReply({ content: `Sending DMs... ${progress.current}/${progress.total} delivered, ${progress.failed} failed.` });
+    });
+
+    const reportPath = dmManager.buildReportFile(results, sessionId);
+    await interaction.editReply({
+      content: `Direct message ${mode === 'mass' ? 'broadcast' : 'send'} complete. ${results.filter((row) => row.status === 'Sent').length} delivered, ${results.filter((row) => row.status === 'Failed').length} failed.`,
+      files: [new (require('discord.js').AttachmentBuilder)(reportPath).setName('dm-report.csv')],
+    });
+
+    delete session.followUp;
+  }
+
+  async handleDirectMessageCancel(interaction) {
+    const session = this.sessions.get(interaction.user.id);
+    if (!session?.followUp || session.followUp.type !== 'dm_confirm') {
+      await interaction.reply({ content: 'No direct message workflow to cancel.', ephemeral: true });
+      return;
+    }
+
+    delete session.followUp;
+    await interaction.reply({ content: 'Direct message workflow canceled.', ephemeral: true });
+  }
+
   async handleSelectMenu(interaction) {
     const session = this.getSession(interaction.user.id);
     if (!session || session.messageId !== interaction.message.id) {
@@ -272,6 +372,7 @@ class DashboardHandler {
     const session = this.getSession(message.author.id);
     if (!session || session.channelId !== message.channel.id) return;
     if (!session.followUp) return;
+    if (message.content.startsWith(PREFIX) && !['dm_single_content', 'dm_mass_content'].includes(session.followUp.type)) return;
 
     if (session.followUp === 'analytics_reaction') {
       const command = require('../commands/analytics/reactionlist');
@@ -307,7 +408,72 @@ class DashboardHandler {
       delete session.followUp;
       return;
     }
-  }
+    if (session.followUp.type === 'dm_single_recipient') {
+      const parsed = await dmManager.parseSingleRecipient(message, message.content.trim());
+      if (!parsed) {
+        await message.reply({ embeds: [errorEmbed('Invalid Recipient', 'Please mention a valid user or provide a valid Discord user ID.')] });
+        return;
+      }
+      session.followUp = {
+        type: 'dm_single_content',
+        recipients: parsed.recipients,
+        label: parsed.label,
+      };
+      await message.reply({ embeds: [infoEmbed('Recipient Confirmed', `Now send the DM content and any attachments in this channel.`)] });
+      return;
+    }
+
+    if (session.followUp.type === 'dm_mass_recipients') {
+      const parsed = await dmManager.parseMassRecipients(message, message.content.trim());
+      if (!parsed) {
+        await message.reply({ embeds: [errorEmbed('Invalid Recipients', 'Please mention a role, use @everyone, or provide valid user IDs.')] });
+        return;
+      }
+      session.followUp = {
+        type: 'dm_mass_content',
+        recipients: parsed.recipients,
+        label: parsed.label,
+      };
+      await message.reply({ embeds: [infoEmbed('Recipients Confirmed', `Now send the DM content and any attachments in this channel.`)] });
+      return;
+    }
+
+    if (session.followUp.type === 'dm_single_content' || session.followUp.type === 'dm_mass_content') {
+      const content = message.content.trim();
+      const attachments = dmManager.buildAttachmentBuilders(message);
+      if (!content && !attachments.length) {
+        await message.reply({ embeds: [infoEmbed('Message Required', 'Please provide message text or attach files to send.')] });
+        return;
+      }
+      const mode = session.followUp.type === 'dm_single_content' ? 'single' : 'mass';
+      const preview = await message.reply({
+        embeds: [dmManager.createDMPreviewEmbed(message.author, session.followUp.label, content, attachments, mode)],
+        components: [
+          new (require('discord.js').ActionRowBuilder)().addComponents(
+            new (require('discord.js').ButtonBuilder)().setCustomId('dm_confirm').setLabel('Confirm').setStyle(require('discord.js').ButtonStyle.Success),
+            new (require('discord.js').ButtonBuilder)().setCustomId('dm_cancel').setLabel('Cancel').setStyle(require('discord.js').ButtonStyle.Danger),
+          ),
+        ],
+      });
+      session.followUp = {
+        type: 'dm_confirm',
+        mode,
+        recipients: session.followUp.recipients,
+        content,
+        attachments,
+        label: session.followUp.label,
+        messageId: preview.id,
+      };
+      this.updateSessionMessageId(message.author.id, preview.id);
+      return;
+    }
+
+    if (session.followUp.type === 'role_remove') {
+      const command = require('../commands/roles/roleremove');
+      await command.execute(message, [session.followUp.roleId]);
+      delete session.followUp;
+      return;
+    }  }
 }
 
 module.exports = DashboardHandler;
