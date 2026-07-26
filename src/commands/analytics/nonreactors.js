@@ -61,6 +61,14 @@ module.exports = {
       }
     }
 
+    if (message.guild.members.cache.size < (message.guild.memberCount || 0)) {
+      try {
+        await message.guild.members.fetch();
+      } catch {
+        // ignore fetch failures, fallback to cached members
+      }
+    }
+
     const members = message.guild.members.cache.filter((member) => !member.user.bot);
     const nonReactors = members
       .filter((member) => !reactionUsers.has(member.id))

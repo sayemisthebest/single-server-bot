@@ -42,9 +42,19 @@ module.exports = {
     const response = await fetch(attachment.url);
     const content = await response.text();
     const usernames = Array.from(new Set(content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)));
-    const added = [];
-    const skipped = [];
+    const removed = [];
+    const skippedNotFound = [];
+    const skippedNoRole = [];
+    const failedMultiple = [];
     const failed = [];
+
+    if (message.guild.members.cache.size < (message.guild.memberCount || 0)) {
+      try {
+        await message.guild.members.fetch();
+      } catch {
+        // ignore fetch failures, use cached members
+      }
+    }
 
     for (const username of usernames) {
       const matches = Array.from(message.guild.members.cache.filter((member) => {
@@ -55,29 +65,34 @@ module.exports = {
       }).values());
 
       if (matches.length === 0) {
-        skipped.push(username);
+        skippedNotFound.push(username);
         continue;
       }
       if (matches.length > 1) {
-        failed.push(username);
+        failedMultiple.push(username);
         continue;
       }
 
       const targetMember = matches[0];
       if (!targetMember.roles.cache.has(role.id)) {
-        skipped.push(username);
+        skippedNoRole.push(username);
         continue;
       }
       try {
         await targetMember.roles.remove(role);
-        added.push(username);
+        removed.push(username);
       } catch {
         failed.push(username);
       }
     }
 
-    const summary = `Removed: ${added.length}\nSkipped: ${skipped.length}\nFailed: ${failed.length}`;
-    await message.reply({ embeds: [successEmbed('Role Removal Complete', summary)] });
+    const summaryLines = [
+      `Removed: ${removed.length}`,
+      `Skipped (not found): ${skippedNotFound.length}`,
+      `Skipped (no role): ${skippedNoRole.length}`,
+      `Failed (ambiguous or error): ${failedMultiple.length + failed.length}`,
+    ];
+    await message.reply({ embeds: [successEmbed('Role Removal Complete', summaryLines.join('\n'))] });
     const csv = 'Username,Status\n' + [...added.map((item) => `${item},Removed`), ...skipped.map((item) => `${item},Skipped`), ...failed.map((item) => `${item},Failed`)].join('\n');
     const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleremove.csv`);
     fs.writeFileSync(outputPath, csv, 'utf8');

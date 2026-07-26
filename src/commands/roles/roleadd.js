@@ -46,31 +46,40 @@ module.exports = {
 
     const usernames = Array.from(new Set(content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)));
     const added = [];
-    const skipped = [];
+    const skippedNotFound = [];
+    const skippedAlready = [];
+    const failedMultiple = [];
     const failed = [];
-    const seen = new Set();
+
+    if (message.guild.members.cache.size < (message.guild.memberCount || 0)) {
+      try {
+        await message.guild.members.fetch();
+      } catch {
+        // ignore fetch failures, use cached members
+      }
+    }
 
     for (const username of usernames) {
-      const members = message.guild.members.cache.filter((member) => {
+      const matches = message.guild.members.cache.filter((member) => {
         const name = member.user.username.toLowerCase();
         const displayName = member.displayName.toLowerCase();
         const nickname = member.nickname?.toLowerCase() || '';
         return [name, displayName, nickname].includes(username.toLowerCase());
       }).values();
 
-      const matches = Array.from(members);
-      if (matches.length === 0) {
-        skipped.push(username);
+      const matched = Array.from(matches);
+      if (matched.length === 0) {
+        skippedNotFound.push(username);
         continue;
       }
-      if (matches.length > 1) {
-        failed.push(username);
+      if (matched.length > 1) {
+        failedMultiple.push(username);
         continue;
       }
 
-      const targetMember = matches[0];
+      const targetMember = matched[0];
       if (targetMember.roles.cache.has(role.id)) {
-        skipped.push(username);
+        skippedAlready.push(username);
         continue;
       }
       try {
@@ -81,8 +90,13 @@ module.exports = {
       }
     }
 
-    const summary = `Added: ${added.length}\nSkipped: ${skipped.length}\nFailed: ${failed.length}`;
-    await message.reply({ embeds: [successEmbed('Role Assignment Complete', summary)] });
+    const summaryLines = [
+      `Added: ${added.length}`,
+      `Skipped (not found): ${skippedNotFound.length}`,
+      `Skipped (already has role): ${skippedAlready.length}`,
+      `Failed (ambiguous or error): ${failedMultiple.length + failed.length}`,
+    ];
+    await message.reply({ embeds: [successEmbed('Role Assignment Complete', summaryLines.join('\n'))] });
     if (added.length || skipped.length || failed.length) {
       const csv = 'Username,Status\n' + [...added.map((item) => `${item},Added`), ...skipped.map((item) => `${item},Skipped`), ...failed.map((item) => `${item},Failed`)].join('\n');
       const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleadd.csv`);
