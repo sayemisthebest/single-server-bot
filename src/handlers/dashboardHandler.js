@@ -115,6 +115,9 @@ class DashboardHandler {
       case 'analytics_topposter':
         await this.handleAnalyticsTopPoster(interaction);
         return true;
+      case 'analytics_nonreactors':
+        await this.handleAnalyticsNonReactors(interaction);
+        return true;
       case 'ticket_create_panel':
         await this.handleTicketCreatePanel(interaction);
         return true;
@@ -186,6 +189,11 @@ class DashboardHandler {
   async handleAnalyticsTopPoster(interaction) {
     const channelSelect = require('../ui/components').createChannelSelect('topposter_channel_select', 'Select a channel', [0]);
     await interaction.update({ content: 'Select a text channel for top poster analytics.', embeds: [], components: [channelSelect, require('../ui/components').createNavigationButtons()] });
+  }
+
+  async handleAnalyticsNonReactors(interaction) {
+    await interaction.update({ content: 'Please send a Discord message link for the nonreactors report.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+    this.setFollowUp(interaction.user.id, 'analytics_nonreactors');
   }
 
   async handleTicketCreatePanel(interaction) {
@@ -263,6 +271,13 @@ class DashboardHandler {
 
     if (session.followUp === 'analytics_afterpost') {
       const command = require('../commands/analytics/afterpost');
+      await command.execute(message, [message.content.trim()]);
+      delete session.followUp;
+      return;
+    }
+
+    if (session.followUp === 'analytics_nonreactors') {
+      const command = require('../commands/analytics/nonreactors');
       await command.execute(message, [message.content.trim()]);
       delete session.followUp;
       return;

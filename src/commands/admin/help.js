@@ -20,6 +20,7 @@ module.exports = {
       '!reactionlist <message_link>',
       '!afterpost <message_link>',
       '!topposter #channel',
+      '!nonreactors <message_link>',
       '',
       'Ticket Commands',
       '!ticketsetup',
