@@ -6,17 +6,27 @@ const logger = require('../utils/logger');
 module.exports = async (client, interaction) => {
   if (!interaction.guild) return;
 
-  if (interaction.isButton() && interaction.customId.startsWith('dashboard_')) {
-    await client.dashboardHandler.handleInteraction(interaction);
+  try {
+    if (interaction.isButton()) {
+      const handled = await client.dashboardHandler.handleInteraction(interaction);
+      if (handled) return;
+    }
+
+    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) {
+      await client.dashboardHandler.handleSelectMenu(interaction);
+      return;
+    }
+
+    if (!interaction.isButton()) return;
+  } catch (error) {
+    logger.error(`Interaction error: ${error.stack || error.message}`);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: 'An error occurred while processing the interaction.', ephemeral: true }).catch(() => {});
+    } else {
+      await interaction.reply({ content: 'An error occurred while processing the interaction.', ephemeral: true }).catch(() => {});
+    }
     return;
   }
-
-  if (interaction.isStringSelectMenu()) {
-    await client.dashboardHandler.handleSelectMenu(interaction);
-    return;
-  }
-
-  if (!interaction.isButton()) return;
 
   const config = db.prepare('SELECT category_id, logs_id FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
   if (!config) {

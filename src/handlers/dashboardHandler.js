@@ -63,7 +63,7 @@ class DashboardHandler {
   async handleInteraction(interaction) {
     const session = this.getSession(interaction.user.id);
     if (!session || session.messageId !== interaction.message.id) {
-      return;
+      return false;
     }
 
     this.updateSession(interaction.user.id);
@@ -71,62 +71,62 @@ class DashboardHandler {
     switch (interaction.customId) {
       case 'dashboard_role_manager':
         await interaction.update({ embeds: [createRoleManagerEmbed()], components: getRoleManagerComponents(interaction.guild) });
-        break;
+        return true;
       case 'dashboard_analytics':
         await interaction.update({ embeds: [createAnalyticsEmbed()], components: getAnalyticsComponents() });
-        break;
+        return true;
       case 'dashboard_ticket_system':
         await interaction.update({ embeds: [createTicketEmbed()], components: getTicketComponents() });
-        break;
+        return true;
       case 'dashboard_settings':
         await interaction.update({ embeds: [createSettingsEmbed()], components: getSettingsComponents() });
-        break;
+        return true;
       case 'dashboard_exports':
         await interaction.update({ embeds: [createExportEmbed()], components: getExportComponents() });
-        break;
+        return true;
       case 'dashboard_help':
         await interaction.update({ embeds: [createHelpEmbed()], components: getHelpComponents() });
-        break;
+        return true;
       case 'dashboard_home':
         await interaction.update({ embeds: [createDashboardEmbed(interaction.guild, this.client)], components: createDashboardComponents() });
-        break;
+        return true;
       case 'dashboard_back':
         await interaction.update({ embeds: [createDashboardEmbed(interaction.guild, this.client)], components: createDashboardComponents() });
-        break;
+        return true;
       case 'dashboard_close':
         await interaction.update({ embeds: [errorEmbed('Dashboard Closed', 'The dashboard session has been closed.')], components: [] });
         this.sessions.delete(interaction.user.id);
-        break;
+        return true;
       case 'role_add':
         await this.handleRoleAdd(interaction);
-        break;
+        return true;
       case 'role_remove':
         await this.handleRoleRemove(interaction);
-        break;
+        return true;
       case 'role_export':
         await this.handleRoleExport(interaction);
-        break;
+        return true;
       case 'analytics_reaction':
         await this.handleAnalyticsReaction(interaction);
-        break;
+        return true;
       case 'analytics_afterpost':
         await this.handleAnalyticsAfterPost(interaction);
-        break;
+        return true;
       case 'analytics_topposter':
         await this.handleAnalyticsTopPoster(interaction);
-        break;
+        return true;
       case 'ticket_create_panel':
         await this.handleTicketCreatePanel(interaction);
-        break;
+        return true;
       case 'ticket_close':
         await this.handleTicketClose(interaction);
-        break;
+        return true;
       case 'ticket_claim':
         await this.handleTicketClaim(interaction);
-        break;
+        return true;
       case 'ticket_transcript':
         await this.handleTicketTranscript(interaction);
-        break;
+        return true;
       case 'settings_staff_channel':
       case 'settings_logs_channel':
       case 'settings_ticket_category':
@@ -137,10 +137,9 @@ class DashboardHandler {
       case 'export_tickets':
       case 'export_logs':
         await interaction.reply({ content: 'This dashboard feature is under construction.', ephemeral: true });
-        break;
+        return true;
       default:
-        await interaction.reply({ content: 'Unknown action.', ephemeral: true });
-        break;
+        return false;
     }
   }
 
