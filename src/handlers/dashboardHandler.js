@@ -246,7 +246,27 @@ class DashboardHandler {
 
     if (interaction.customId === 'topposter_channel_select') {
       const channelId = interaction.values[0];
-      await require('../commands/analytics/topposter').execute(interaction, [channelId]);
+      const monthOptions = [];
+      const now = new Date();
+      for (let i = 0; i < 12; i += 1) {
+        const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+        const label = date.toLocaleString('en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' });
+        const value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+        monthOptions.push({ label, value });
+      }
+      this.sessions.get(interaction.user.id).followUp = { type: 'topposter', channelId };
+      const monthSelect = require('../ui/components').createMonthSelect('topposter_month_select', 'Select a month', monthOptions);
+      await interaction.update({ content: 'Select the month to report on.', embeds: [], components: [monthSelect, require('../ui/components').createNavigationButtons()] });
+      return;
+    }
+
+    if (interaction.customId === 'topposter_month_select') {
+      const session = this.sessions.get(interaction.user.id);
+      if (!session?.followUp || session.followUp.type !== 'topposter') return;
+      const channelId = session.followUp.channelId;
+      const monthValue = interaction.values[0];
+      await require('../commands/analytics/topposter').execute(interaction, [channelId, monthValue]);
+      delete session.followUp;
       return;
     }
   }

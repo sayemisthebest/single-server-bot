@@ -137,10 +137,15 @@ class FallbackDatabase {
       return this.tables[tableName].filter((item) => item[whereColumn] === args[0]);
     }
 
-    const analyticMatch = sql.match(/^SELECT (.+) FROM analytics WHERE guild_id = \? AND channel_id = \? GROUP BY author_id ORDER BY messages DESC LIMIT 50$/i);
+    const analyticMatch = sql.match(/^SELECT (.+) FROM analytics WHERE guild_id = \? AND channel_id = \?(?: AND timestamp >= \? AND timestamp < \?)? GROUP BY author_id ORDER BY messages DESC LIMIT 50$/i);
     if (analyticMatch) {
       const table = this.tables.analytics || [];
-      const filtered = table.filter((item) => item.guild_id === args[0] && item.channel_id === args[1]);
+      let filtered = table.filter((item) => item.guild_id === args[0] && item.channel_id === args[1]);
+      if (args.length >= 4) {
+        const start = args[2];
+        const end = args[3];
+        filtered = filtered.filter((item) => item.timestamp >= start && item.timestamp < end);
+      }
       const aggregated = filtered.reduce((acc, item) => {
         if (!acc[item.author_id]) {
           acc[item.author_id] = { author_id: item.author_id, messages: 0, words: 0, images: 0, attachments: 0, links: 0 };

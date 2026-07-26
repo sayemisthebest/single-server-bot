@@ -105,6 +105,17 @@ function createChannelSelect(customId, placeholder, channelTypes) {
   );
 }
 
+function createMonthSelect(customId, placeholder, monthOptions) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder(placeholder)
+      .setMinValues(1)
+      .setMaxValues(1)
+      .addOptions(monthOptions),
+  );
+}
+
 function createModal(customId, title, label, placeholder, customIdField = 'input') {
   return new ModalBuilder()
     .setCustomId(customId)
