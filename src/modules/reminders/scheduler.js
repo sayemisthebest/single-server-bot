@@ -58,7 +58,6 @@ async function deliverReminder(client, reminder) {
   }
 
   const metadata = reminder.metadata ? JSON.parse(reminder.metadata) : {};
-  const embed = buildReminderEmbed(guild.client.user, reminder);
   const attachments = metadata.attachments || [];
   const fileObjects = attachments.map((item) => ({ attachment: item.url, name: item.name }));
   const result = { status: 'sent', success: true, failureReason: null };
@@ -77,7 +76,7 @@ async function deliverReminder(client, reminder) {
     } else if (reminder.type === 'channel') {
       const channel = await guild.channels.fetch(reminder.recipient_channel_id).catch(() => null);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not found or invalid');
-      await channel.send({ embeds: [embed], files: fileObjects });
+      await channel.send({ content: reminder.message || '_No message provided._', files: fileObjects });
       result.recipientChannelId = reminder.recipient_channel_id;
     } else if (reminder.type === 'role') {
       const channel = await guild.channels.fetch(reminder.recipient_channel_id).catch(() => null);
