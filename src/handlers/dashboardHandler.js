@@ -371,7 +371,7 @@ class DashboardHandler {
     if (stage === 2) {
       switch (type) {
         case 'personal':
-          return 'Please send the reminder title in this channel.';
+          return 'Please send the reminder message in this channel.';
         case 'dm':
           return 'Please mention the user or enter a user ID to set the DM reminder recipient.';
         case 'channel':
@@ -381,6 +381,9 @@ class DashboardHandler {
         default:
           return 'Please provide the next reminder detail in this channel.';
       }
+    }
+    if (stage === 3) {
+      return 'Please send the reminder message in this channel.';
     }
     return 'Continue the reminder creation flow in this channel.';
   }
@@ -573,9 +576,14 @@ class DashboardHandler {
 
   async handleFollowUpMessage(message) {
     const session = this.getSession(message.author.id);
-    if (!session || session.channelId !== message.channel.id) return;
-    if (!session.followUp) return;
-    if (message.content.startsWith(PREFIX) && !['dm_single_content', 'dm_mass_content'].includes(session.followUp.type)) return;
+    if (!session || !session.followUp) return;
+    if (session.followUp.type !== 'reminder_create' && session.channelId !== message.channel.id) return;
+    if (session.followUp.type !== 'reminder_create' && message.content.startsWith(PREFIX) && !['dm_single_content', 'dm_mass_content'].includes(session.followUp.type)) return;
+
+    if (session.followUp.type === 'reminder_create') {
+      await this.handleReminderCreateFollowUp(message, session);
+      return;
+    }
 
     if (session.followUp === 'analytics_reaction') {
       const command = require('../commands/analytics/reactionlist');
@@ -780,6 +788,111 @@ class DashboardHandler {
       const command = require('../commands/roles/roleremove');
       await command.execute(message, [session.followUp.roleId]);
       delete session.followUp;
+      return;
+    }
+  }
+
+  async handleReminderCreateFollowUp(message, session) {
+    const state = session.followUp;
+    const content = message.content.trim();
+    if (!content) {
+      await message.reply({ embeds: [errorEmbed('Input Required', 'Please provide the requested reminder information.')] });
+      return;
+    }
+
+    const reminderData = state.reminderData || {};
+    const type = state.reminderType;
+    const labels = {
+      personal: 'Personal Reminder',
+      dm: 'DM Reminder',
+      channel: 'Channel Reminder',
+      role: 'Role Reminder',
+    };
+    const selectedLabel = labels[type] || 'Reminder';
+
+    if (state.stage === 2) {
+      if (type === 'personal') {
+        reminderData.title = content;
+        state.stage = 3;
+        await message.reply({ embeds: [infoEmbed('Title Received', 'Title saved. Now send the reminder message body.')] });
+      } else if (type === 'dm') {
+        const userId = this.parseMentionId(content, 'user');
+        const member = await message.guild.members.fetch(userId).catch(() => null);
+        if (!member) {
+          await message.reply({ embeds: [errorEmbed('Invalid User', 'Please mention a valid user or provide a valid user ID.')] });
+          return;
+        }
+        reminderData.recipient_user_id = userId;
+        state.stage = 3;
+        await message.reply({ embeds: [infoEmbed('Recipient Saved', `Recipient confirmed: ${member.user.tag}. Now send the reminder title.`)] });
+      } else if (type === 'channel') {
+        const channelId = this.parseMentionId(content, 'channel');
+        const channel = await message.guild.channels.fetch(channelId).catch(() => null);
+        if (!channel) {
+          await message.reply({ embeds: [errorEmbed('Invalid Channel', 'Please mention a valid channel or provide a valid channel ID.')] });
+          return;
+        }
+        reminderData.recipient_channel_id = channelId;
+        state.stage = 3;
+        await message.reply({ embeds: [infoEmbed('Channel Saved', `Reminder channel set to ${channel}. Now send the reminder title.`)] });
+      } else if (type === 'role') {
+        const roleId = this.parseMentionId(content, 'role');
+        const role = message.guild.roles.cache.get(roleId);
+        if (!role) {
+          await message.reply({ embeds: [errorEmbed('Invalid Role', 'Please mention a valid role or provide a valid role ID.')] });
+          return;
+        }
+        reminderData.recipient_role_id = roleId;
+        state.stage = 3;
+        await message.reply({ embeds: [infoEmbed('Role Saved', `Reminder role set to ${role.name}. Now send the reminder title.`)] });
+      }
+      state.reminderData = reminderData;
+      session.followUp = state;
+      this.sessions.set(message.author.id, session);
+      return;
+    }
+
+    if (state.stage === 3) {
+      reminderData.title = content;
+      state.stage = 4;
+      state.reminderData = reminderData;
+      session.followUp = state;
+      this.sessions.set(message.author.id, session);
+      await message.reply({ embeds: [infoEmbed('Title Saved', 'Title saved. Now send the reminder message body.')] });
+      return;
+    }
+
+    if (state.stage === 4) {
+      reminderData.message = content;
+      state.stage = 5;
+      state.reminderData = reminderData;
+      session.followUp = state;
+      this.sessions.set(message.author.id, session);
+      await message.reply({ embeds: [infoEmbed('Message Saved', 'Message saved. Now provide the delivery time, for example `2026-07-27 18:00` or `in 10 minutes`.')] });
+      return;
+    }
+
+    if (state.stage === 5) {
+      const deliveryTimestamp = this.parseReminderTimestamp(content);
+      if (!deliveryTimestamp) {
+        await message.reply({ embeds: [errorEmbed('Invalid Time', 'Please provide a valid delivery time, such as `2026-07-27 18:00` or `in 10 minutes`.')] });
+        return;
+      }
+
+      reminderData.delivery_timestamp = deliveryTimestamp;
+      reminderData.next_run = deliveryTimestamp;
+      reminderData.repeat_type = 'none';
+      reminderData.guild_id = message.guild.id;
+      reminderData.creator_id = message.author.id;
+      reminderData.type = type;
+
+      reminderDatabase.createReminder(reminderData);
+      delete session.followUp;
+      this.sessions.set(message.author.id, session);
+
+      await message.reply({
+        embeds: [successEmbed('Reminder Created', `${selectedLabel} scheduled for ${new Date(deliveryTimestamp).toUTCString()}.`)],
+      });
       return;
     }
   }
