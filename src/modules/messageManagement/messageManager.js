@@ -94,8 +94,26 @@ async function handleDeleteCommand(message, args) {
 }
 
 async function handleInteraction(interaction) {
+  const allowedIds = new Set([
+    'mm_close',
+    'mm_back',
+    'mm_delete_recent',
+    'mm_delete_user',
+    'mm_channel_recent',
+    'mm_channel_user',
+    'mm_count_recent',
+    'mm_count_user',
+    'mm_user_select',
+    'mm_confirm_delete',
+    'mm_cancel_delete',
+  ]);
+
+  if (!interaction.customId || !allowedIds.has(interaction.customId)) {
+    return false;
+  }
+
   const session = deleteSession.getSession(interaction.user.id);
-  if (session && session.messageId !== interaction.message.id) {
+  if (!session || session.messageId !== interaction.message.id) {
     return false;
   }
 
@@ -213,31 +231,32 @@ async function handleInteraction(interaction) {
     }
 
     await interaction.update({ content: 'Starting deletion... this may take a moment.', embeds: [], components: [] });
+    const progressMessage = await interaction.followUp({ content: 'Preparing deletion...', ephemeral: true, fetchReply: true });
 
     try {
       let result;
       if (session.followUp.type === 'delete_recent_confirm') {
         const requested = session.followUp.count;
         result = await deleteRecentMessages(channel, requested, async (progress) => {
-          await interaction.editReply({ content: `Deleting Messages...\nDeleted: ${progress.deleted}\nRemaining: ${progress.remaining}\nSkipped: ${progress.skipped}` });
+          await progressMessage.edit({ content: `Deleting Messages...\nDeleted: ${progress.deleted}\nRemaining: ${progress.remaining}\nSkipped: ${progress.skipped}` });
         });
         await sendDeletionLog(interaction.guild, interaction.user, channel, null, requested, result.deleted, result.skipped);
       } else if (session.followUp.type === 'delete_user_confirm') {
         const requested = session.followUp.count;
         if (!session.followUp.user) {
-          await interaction.editReply({ content: 'Target user is invalid for deletion.', embeds: [], components: [] });
+          await progressMessage.edit({ content: 'Target user is invalid for deletion.', embeds: [], components: [] });
           return true;
         }
         result = await deleteUserMessages(channel, session.followUp.user.id, requested, async (progress) => {
-          await interaction.editReply({ content: `Deleting Messages...\nDeleted: ${progress.deleted}\nRemaining: ${progress.remaining}\nSkipped: ${progress.skipped}` });
+          await progressMessage.edit({ content: `Deleting Messages...\nDeleted: ${progress.deleted}\nRemaining: ${progress.remaining}\nSkipped: ${progress.skipped}` });
         });
         await sendDeletionLog(interaction.guild, interaction.user, channel, session.followUp.user, requested, result.deleted, result.skipped);
       }
 
-      await interaction.editReply({ content: `Deletion complete. Deleted: ${result.deleted}. Skipped: ${result.skipped}. Failed: ${result.failed}.`, components: [] });
+      await progressMessage.edit({ content: `Deletion complete. Deleted: ${result.deleted}. Skipped: ${result.skipped}. Failed: ${result.failed}.`, components: [] });
     } catch (error) {
       logger.error(`Delete operation failed: ${error.message}`);
-      await interaction.editReply({ content: 'An error occurred during deletion. Please check bot permissions and try again.', components: [] });
+      await progressMessage.edit({ content: 'An error occurred during deletion. Please check bot permissions and try again.', components: [] });
     }
 
     deleteSession.endSession(interaction.user.id);
