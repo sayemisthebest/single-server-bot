@@ -45,12 +45,16 @@ class FallbackDatabase {
   }
 
   exec(sql) {
-    const createMatch = sql.match(/CREATE TABLE IF NOT EXISTS\s+(\w+)/i);
-    if (createMatch) {
-      const [, tableName] = createMatch;
+    const createTableRegex = /CREATE TABLE IF NOT EXISTS\s+(\w+)/gi;
+    let match;
+    let created = false;
+    while ((match = createTableRegex.exec(sql)) !== null) {
+      const [, tableName] = match;
       this.ensureTable(tableName);
+      created = true;
+    }
+    if (created) {
       this.save();
-      return this;
     }
     return this;
   }
