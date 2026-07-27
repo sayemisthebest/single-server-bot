@@ -20,6 +20,7 @@ class FallbackDatabase {
   constructor(filePath) {
     this.filePath = filePath;
     this.tables = {};
+    this.knownTables = ['guild_configs', 'ticket_configs', 'message_logs', 'analytics', 'ticket_logs', 'ticket_daily_counts'];
     this.load();
   }
 
@@ -32,6 +33,7 @@ class FallbackDatabase {
         this.tables = {};
       }
     }
+    this.knownTables.forEach((table) => this.ensureTable(table));
   }
 
   save() {
@@ -90,19 +92,23 @@ class FallbackDatabase {
       return { changes: 1, lastInsertRowid: this.tables[tableName].length };
     }
 
-    const updateMatch = sql.match(/^UPDATE (\w+) SET (.+?) WHERE (.+?) = \?$/i);
+    const updateMatch = sql.match(/^UPDATE (\w+) SET (.+?) WHERE (.+)$/i);
     if (updateMatch) {
-      const [, tableName, setClause, whereColumn] = updateMatch;
+      const [, tableName, setClause, whereClause] = updateMatch;
       this.ensureTable(tableName);
-      const row = this.tables[tableName].find((item) => item[whereColumn] === args[0]);
+      const conditions = whereClause.split(/\s+AND\s+/i).map((cond) => cond.trim());
+      const whereValues = args.slice(args.length - conditions.length);
+      const row = this.tables[tableName].find((item) => conditions.every((cond, index) => {
+        const column = cond.replace(/\s*=\s*\?$/, '').trim();
+        return item[column] === whereValues[index];
+      }));
       if (row) {
-        if (setClause.includes('updated_at')) {
-          row.updated_at = new Date().toISOString();
-        } else if (setClause.includes('edited')) {
-          row.edited = 1;
-        } else if (setClause.includes('deleted')) {
-          row.deleted = 1;
-        }
+        const setParts = setClause.split(',').map((part) => part.trim());
+        const setValues = args.slice(0, args.length - conditions.length);
+        setParts.forEach((part, index) => {
+          const column = part.replace(/\s*=\s*\?$/, '').trim();
+          row[column] = setValues[index];
+        });
       }
       this.save();
       return { changes: row ? 1 : 0, lastInsertRowid: null };
@@ -121,11 +127,15 @@ class FallbackDatabase {
   }
 
   get(sql, args) {
-    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+?) = \?$/i);
+    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+)$/i);
     if (selectMatch) {
-      const [, selectedColumns, tableName, whereColumn] = selectMatch;
+      const [, selectedColumns, tableName, whereClause] = selectMatch;
       this.ensureTable(tableName);
-      const row = this.tables[tableName].find((item) => item[whereColumn] === args[0]);
+      const conditions = whereClause.split(/\s+AND\s+/i).map((cond) => cond.trim());
+      const row = this.tables[tableName].find((item) => conditions.every((cond, index) => {
+        const column = cond.replace(/\s*=\s*\?$/, '').trim();
+        return item[column] === args[index];
+      }));
       if (!row) return undefined;
       if (selectedColumns === '*') return row;
       return { [selectedColumns.trim()]: row[selectedColumns.trim()] };
@@ -134,11 +144,15 @@ class FallbackDatabase {
   }
 
   all(sql, args) {
-    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+?) = \?$/i);
+    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+)$/i);
     if (selectMatch) {
-      const [, selectedColumns, tableName, whereColumn] = selectMatch;
+      const [, selectedColumns, tableName, whereClause] = selectMatch;
       this.ensureTable(tableName);
-      return this.tables[tableName].filter((item) => item[whereColumn] === args[0]);
+      const conditions = whereClause.split(/\s+AND\s+/i).map((cond) => cond.trim());
+      return this.tables[tableName].filter((item) => conditions.every((cond, index) => {
+        const column = cond.replace(/\s*=\s*\?$/, '').trim();
+        return item[column] === args[index];
+      }));
     }
 
     const analyticMatch = sql.match(/^SELECT (.+) FROM analytics WHERE guild_id = \? AND channel_id = \?(?: AND timestamp >= \? AND timestamp < \?)? GROUP BY author_id ORDER BY messages DESC LIMIT 50$/i);
@@ -203,8 +217,19 @@ function initializeDatabase() {
       panel_id TEXT,
       logs_id TEXT,
       support_role_ids TEXT,
+      daily_ticket_limit INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_daily_counts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      ticket_count INTEGER DEFAULT 0,
+      last_ticket_timestamp TEXT,
+      reset_date TEXT,
+      UNIQUE (guild_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS message_logs (
@@ -246,6 +271,17 @@ function initializeDatabase() {
       timestamp TEXT NOT NULL
     );
   `);
+
+  if (Database) {
+    try {
+      const columns = db.prepare("PRAGMA table_info(ticket_configs)").all().map((col) => col.name);
+      if (!columns.includes('daily_ticket_limit')) {
+        db.prepare('ALTER TABLE ticket_configs ADD COLUMN daily_ticket_limit INTEGER DEFAULT 1').run();
+      }
+    } catch (error) {
+      logger.warn(`Ticket config migration skipped: ${error.message}`);
+    }
+  }
 
   logger.info('Database initialized');
 }

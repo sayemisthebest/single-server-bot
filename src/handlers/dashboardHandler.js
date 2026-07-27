@@ -144,6 +144,9 @@ class DashboardHandler {
       case 'ticket_transcript':
         await this.handleTicketTranscript(interaction);
         return true;
+      case 'ticket_settings':
+        await this.handleTicketSettings(interaction);
+        return true;
       case 'dm_single':
         await this.handleDirectMessageSingle(interaction);
         return true;
@@ -216,6 +219,17 @@ class DashboardHandler {
   async handleTicketCreatePanel(interaction) {
     await interaction.deferReply({ ephemeral: true });
     await interaction.followUp({ content: 'Please run !ticketsetup in the staff channel to create the ticket panel.', ephemeral: true });
+  }
+
+  async handleTicketSettings(interaction) {
+    const config = db.prepare('SELECT daily_ticket_limit FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id) || {};
+    const currentLimit = typeof config.daily_ticket_limit === 'number' ? config.daily_ticket_limit : 1;
+    const ticketLimitSelect = require('../ui/components').createTicketLimitSelect('ticket_limit_select', 'Select the daily ticket limit');
+    await interaction.update({
+      content: `Current daily ticket limit: ${currentLimit === 0 ? 'Unlimited' : currentLimit}`,
+      embeds: [],
+      components: [ticketLimitSelect, require('../ui/components').createNavigationButtons()],
+    });
   }
 
   async handleTicketClose(interaction) {
@@ -360,6 +374,19 @@ class DashboardHandler {
       const monthValue = interaction.values[0];
       await require('../commands/analytics/topposter').execute(interaction, [channelId, monthValue]);
       delete session.followUp;
+      return;
+    }
+
+    if (interaction.customId === 'ticket_limit_select') {
+      const limitValue = Number(interaction.values[0]);
+      const limit = Number.isInteger(limitValue) && limitValue >= 0 ? limitValue : 1;
+      db.prepare('INSERT OR IGNORE INTO ticket_configs (guild_id, daily_ticket_limit) VALUES (?, ?)').run(interaction.guild.id, limit);
+      db.prepare('UPDATE ticket_configs SET daily_ticket_limit = ? WHERE guild_id = ?').run(limit, interaction.guild.id);
+      await interaction.update({
+        content: `Daily ticket limit updated to: ${limit === 0 ? 'Unlimited' : limit}`,
+        embeds: [],
+        components: [require('../ui/components').createNavigationButtons()],
+      });
       return;
     }
   }

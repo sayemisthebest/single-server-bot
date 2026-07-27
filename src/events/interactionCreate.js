@@ -3,6 +3,18 @@ const { PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, Butto
 const { successEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
 const logger = require('../utils/logger');
 
+function normalizeTicketLimit(value) {
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 0) return 1;
+  return limit;
+}
+
+function getTodayUTCDate() {
+  const now = new Date();
+  const utcDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return utcDate.toISOString().slice(0, 10);
+}
+
 module.exports = async (client, interaction) => {
   if (!interaction.guild) return;
 
@@ -45,6 +57,21 @@ module.exports = async (client, interaction) => {
       if (!category || category.type !== ChannelType.GuildCategory) {
         await interaction.reply({ embeds: [errorEmbed('Ticket Category Missing', 'The ticket category could not be found.')], ephemeral: true });
         return;
+      }
+
+      const ticketLimit = normalizeTicketLimit(config.daily_ticket_limit ?? 1);
+      if (ticketLimit > 0) {
+        const today = getTodayUTCDate();
+        const countRecord = db.prepare('SELECT * FROM ticket_daily_counts WHERE guild_id = ? AND user_id = ?').get(interaction.guild.id, interaction.user.id);
+        const currentCount = countRecord && countRecord.reset_date === today ? (Number(countRecord.ticket_count) || 0) : 0;
+
+        if (currentCount >= ticketLimit) {
+          await interaction.reply({
+            embeds: [errorEmbed('Ticket Limit Reached', `You have reached today's ticket limit.\n\nDaily Limit:\n${ticketLimit}\n\nYou may create another ticket after the daily reset.`)],
+            ephemeral: true,
+          });
+          return;
+        }
       }
 
       const existingChannel = interaction.guild.channels.cache.find((channel) =>
@@ -106,6 +133,22 @@ module.exports = async (client, interaction) => {
 
       await channel.send({ embeds: [successEmbed('Ticket Opened', `Welcome ${interaction.user}. A staff member will join soon.`)], components: [closeButton] });
       await interaction.reply({ embeds: [successEmbed('Ticket Created', `Your ticket has been opened: ${channel}`)], ephemeral: true });
+
+      const ticketLimit = normalizeTicketLimit(config.daily_ticket_limit ?? 1);
+      if (ticketLimit > 0) {
+        const today = getTodayUTCDate();
+        const nowISO = new Date().toISOString();
+        const countRecord = db.prepare('SELECT * FROM ticket_daily_counts WHERE guild_id = ? AND user_id = ?').get(interaction.guild.id, interaction.user.id);
+        const nextCount = countRecord && countRecord.reset_date === today ? (Number(countRecord.ticket_count) || 0) + 1 : 1;
+
+        if (countRecord) {
+          db.prepare('UPDATE ticket_daily_counts SET ticket_count = ?, last_ticket_timestamp = ?, reset_date = ? WHERE guild_id = ? AND user_id = ?')
+            .run(nextCount, nowISO, today, interaction.guild.id, interaction.user.id);
+        } else {
+          db.prepare('INSERT OR REPLACE INTO ticket_daily_counts (guild_id, user_id, ticket_count, last_ticket_timestamp, reset_date) VALUES (?, ?, ?, ?, ?)')
+            .run(interaction.guild.id, interaction.user.id, nextCount, nowISO, today);
+        }
+      }
 
       if (config.logs_id) {
         const logsChannel = interaction.guild.channels.cache.get(config.logs_id);

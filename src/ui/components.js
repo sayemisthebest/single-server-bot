@@ -73,6 +73,23 @@ function createSettingsSecondaryButtons() {
   );
 }
 
+function createTicketLimitSelect(customId, placeholder) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder(placeholder)
+      .setMinValues(1)
+      .setMaxValues(1)
+      .addOptions([
+        { label: '1 Ticket per Day', value: '1' },
+        { label: '2 Tickets per Day', value: '2' },
+        { label: '3 Tickets per Day', value: '3' },
+        { label: '5 Tickets per Day', value: '5' },
+        { label: 'Unlimited Tickets', value: '0' },
+      ]),
+  );
+}
+
 function createExportButtons() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('export_role').setLabel('Export Role').setStyle(ButtonStyle.Primary).setEmoji('📄'),
