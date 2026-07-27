@@ -679,11 +679,6 @@ class DashboardHandler {
       return;
     }
 
-    if (session.followUp.type === 'reminder_create') {
-      await this.handleReminderCreateFollowUp(message, session);
-      return;
-    }
-
     if (session.followUp.type === 'role_remove') {
       const command = require('../commands/roles/roleremove');
       await command.execute(message, [session.followUp.roleId]);
@@ -714,8 +709,14 @@ class DashboardHandler {
       if (type === 'personal') {
         reminderData.message = content;
         state.stage = 4;
+        state.reminderData = reminderData;
+        session.followUp = state;
+        this.sessions.set(message.author.id, session);
         await message.reply({ embeds: [infoEmbed('Message Saved', 'Message saved. Now provide the delivery time, for example `2026-07-27 18:00` or `in 10 minutes`.')] });
-      } else if (type === 'dm') {
+        return;
+      }
+
+      if (type === 'dm') {
         const userId = this.parseMentionId(content, 'user');
         const member = await message.guild.members.fetch(userId).catch(() => null);
         if (!member) {
@@ -724,8 +725,14 @@ class DashboardHandler {
         }
         reminderData.recipient_user_id = userId;
         state.stage = 3;
+        state.reminderData = reminderData;
+        session.followUp = state;
+        this.sessions.set(message.author.id, session);
         await message.reply({ embeds: [infoEmbed('Recipient Saved', `Recipient confirmed: ${member.user.tag}. Now send the reminder message.`)] });
-      } else if (type === 'channel') {
+        return;
+      }
+
+      if (type === 'channel') {
         const channelId = this.parseMentionId(content, 'channel');
         const channel = await message.guild.channels.fetch(channelId).catch(() => null);
         if (!channel) {
@@ -734,8 +741,14 @@ class DashboardHandler {
         }
         reminderData.recipient_channel_id = channelId;
         state.stage = 3;
+        state.reminderData = reminderData;
+        session.followUp = state;
+        this.sessions.set(message.author.id, session);
         await message.reply({ embeds: [infoEmbed('Channel Saved', `Reminder channel set to ${channel}. Now send the reminder message.`)] });
-      } else if (type === 'role') {
+        return;
+      }
+
+      if (type === 'role') {
         const roleId = this.parseMentionId(content, 'role');
         const role = message.guild.roles.cache.get(roleId);
         if (!role) {
@@ -744,25 +757,20 @@ class DashboardHandler {
         }
         reminderData.recipient_role_id = roleId;
         state.stage = 3;
+        state.reminderData = reminderData;
+        session.followUp = state;
+        this.sessions.set(message.author.id, session);
         await message.reply({ embeds: [infoEmbed('Role Saved', `Reminder role set to ${role.name}. Now send the reminder message.`)] });
+        return;
       }
-      state.reminderData = reminderData;
-      session.followUp = state;
+
+      await message.reply({ embeds: [errorEmbed('Invalid Reminder Type', 'Please restart the reminder creation process and choose a valid reminder type.')] });
+      delete session.followUp;
       this.sessions.set(message.author.id, session);
       return;
     }
 
     if (state.stage === 3) {
-      if (type === 'personal') {
-        reminderData.message = content;
-        state.stage = 4;
-        state.reminderData = reminderData;
-        session.followUp = state;
-        this.sessions.set(message.author.id, session);
-        await message.reply({ embeds: [infoEmbed('Message Saved', 'Message saved. Now provide the delivery time, for example `2026-07-27 18:00` or `in 10 minutes`.')] });
-        return;
-      }
-
       reminderData.message = content;
       state.stage = 4;
       state.reminderData = reminderData;
@@ -785,6 +793,7 @@ class DashboardHandler {
       reminderData.guild_id = message.guild.id;
       reminderData.creator_id = message.author.id;
       reminderData.type = type;
+      reminderData.title = reminderData.title || this.generateReminderTitle(reminderData.message, selectedLabel);
 
       reminderDatabase.createReminder(reminderData);
       delete session.followUp;
@@ -812,6 +821,13 @@ class DashboardHandler {
     }
     const idMatch = content.trim().match(/^(\d{17,19})$/);
     return idMatch ? idMatch[1] : null;
+  }
+
+  generateReminderTitle(message, label) {
+    if (!message) return label;
+    const trimmed = message.replace(/\s+/g, ' ').trim();
+    if (trimmed.length <= 50) return trimmed;
+    return `${trimmed.slice(0, 47)}...`;
   }
 
   parseReminderTimestamp(input) {
