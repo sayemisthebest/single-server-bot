@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { createMainButtons, createSecondaryButtons, createNavigationButtons } = require('./components');
+const { createMainButtons, createSecondaryButtons, createReminderButtons, createNavigationButtons } = require('./components');
 
 function createDashboardEmbed(guild, client) {
   return new EmbedBuilder()
@@ -17,7 +17,7 @@ function createDashboardEmbed(guild, client) {
 }
 
 function createDashboardComponents() {
-  return [createMainButtons(), createSecondaryButtons(), createNavigationButtons()];
+  return [createMainButtons(), createSecondaryButtons(), createReminderButtons(), createNavigationButtons()];
 }
 
 module.exports = { createDashboardEmbed, createDashboardComponents };

@@ -25,6 +25,7 @@ module.exports = {
       'Direct Message Commands',
       '!dm <@user|user_id> <message>',
       '!massdm <@role|@everyone|user_id ...> <message>',
+      '!reminder',
       '',
       'Message Management',
       '!delete',

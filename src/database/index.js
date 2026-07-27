@@ -20,7 +20,7 @@ class FallbackDatabase {
   constructor(filePath) {
     this.filePath = filePath;
     this.tables = {};
-    this.knownTables = ['guild_configs', 'ticket_configs', 'ticket_logs', 'ticket_daily_counts'];
+    this.knownTables = ['guild_configs', 'ticket_configs', 'ticket_logs', 'ticket_daily_counts', 'reminders', 'reminder_logs'];
     this.load();
   }
 
@@ -198,6 +198,25 @@ function initializeDatabase() {
       logs_id TEXT,
       support_role_ids TEXT,
       daily_ticket_limit INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      creator_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      recipient_user_id TEXT,
+      recipient_role_id TEXT,
+      recipient_channel_id TEXT,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata TEXT,
+      delivery_timestamp INTEGER NOT NULL,
+      repeat_type TEXT NOT NULL,
+      next_run INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );

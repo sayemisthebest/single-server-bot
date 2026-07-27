@@ -1,4 +1,5 @@
 const { createDashboardEmbed, createDashboardComponents } = require('../ui/dashboard');
+const { createReminderCenterEmbed, getReminderCenterComponents } = require('../ui/reminders');
 const { createRoleManagerEmbed, getRoleManagerComponents } = require('../ui/roleManager');
 const { createAnalyticsEmbed, getAnalyticsComponents } = require('../ui/analytics');
 const { createTicketEmbed, getTicketComponents } = require('../ui/tickets');
@@ -7,18 +8,26 @@ const { createExportEmbed, getExportComponents } = require('../ui/exports');
 const { createHelpEmbed, getHelpComponents } = require('../ui/help');
 const { createDirectMessagesEmbed, getDirectMessageComponents } = require('../ui/directMessages');
 const { createMessageManagementEmbed, getMessageManagementComponents } = require('../ui/messageManagement');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder } = require('discord.js');
 const { hasStaffPermission } = require('../utils/permissions');
 const { db } = require('../database');
-const { errorEmbed, infoEmbed } = require('../utils/embeds');
+const { errorEmbed, infoEmbed, successEmbed } = require('../utils/embeds');
 const { PREFIX } = require('../config/constants');
 const dmManager = require('../modules/directMessages/dmManager');
 const messageManager = require('../modules/messageManagement/messageManager');
+const reminderManager = require('../modules/reminders/reminderManager');
+const reminderDatabase = require('../modules/reminders/database');
+const reminderCreate = require('../modules/reminders/createReminder');
+const { createReminderEmbed } = reminderCreate;
+const reminderEdit = require('../modules/reminders/editReminder');
+const reminderDelete = require('../modules/reminders/deleteReminder');
 const logger = require('../utils/logger');
 
 class DashboardHandler {
   constructor(client) {
     this.client = client;
     this.sessions = new Map();
+    this.sessionTimeouts = new Map();
   }
 
   async launchDashboard(message) {
@@ -34,6 +43,25 @@ class DashboardHandler {
     this.startSession(message.author.id, panel.id, message.channel.id, message.guild.id);
   }
 
+  async launchReminderCenter(message) {
+    if (!message.guild) return;
+    if (!hasStaffPermission(message.member)) {
+      await message.reply({ embeds: [errorEmbed('Access Denied', 'Only staff with Manage Roles or Administrator can access the reminder center.')] });
+      return;
+    }
+
+    const guildConfig = db.prepare('SELECT staff_channel_id FROM guild_configs WHERE guild_id = ?').get(message.guild.id);
+    if (guildConfig?.staff_channel_id && message.channel.id !== guildConfig.staff_channel_id) {
+      await message.reply({ embeds: [errorEmbed('Staff Channel Only', 'The reminder center must be opened in the configured private staff channel.')] });
+      return;
+    }
+
+    const embed = createReminderCenterEmbed();
+    const components = getReminderCenterComponents();
+    const panel = await message.reply({ embeds: [embed], components });
+    this.startSession(message.author.id, panel.id, message.channel.id, message.guild.id);
+  }
+
   startSession(userId, messageId, channelId, guildId) {
     const session = {
       userId,
@@ -44,7 +72,10 @@ class DashboardHandler {
       state: 'dashboard',
     };
     this.sessions.set(userId, session);
-    setTimeout(() => this.expireSession(userId), 300000);
+    if (this.sessionTimeouts.has(userId)) {
+      clearTimeout(this.sessionTimeouts.get(userId));
+    }
+    this.sessionTimeouts.set(userId, setTimeout(() => this.expireSession(userId), 300000));
   }
 
   expireSession(userId) {
@@ -52,6 +83,10 @@ class DashboardHandler {
     if (!session) return;
     if (Date.now() - session.lastInteraction >= 300000) {
       this.sessions.delete(userId);
+    }
+    if (this.sessionTimeouts.has(userId)) {
+      clearTimeout(this.sessionTimeouts.get(userId));
+      this.sessionTimeouts.delete(userId);
     }
   }
 
@@ -63,6 +98,10 @@ class DashboardHandler {
     const session = this.sessions.get(userId);
     if (!session) return;
     session.lastInteraction = Date.now();
+    if (this.sessionTimeouts.has(userId)) {
+      clearTimeout(this.sessionTimeouts.get(userId));
+    }
+    this.sessionTimeouts.set(userId, setTimeout(() => this.expireSession(userId), 300000));
   }
 
   async handleInteraction(interaction) {
@@ -97,6 +136,9 @@ class DashboardHandler {
         return true;
       case 'dashboard_message_management':
         await interaction.update({ embeds: [createMessageManagementEmbed()], components: getMessageManagementComponents() });
+        return true;
+      case 'dashboard_reminders':
+        await interaction.update({ embeds: [createReminderCenterEmbed()], components: getReminderCenterComponents() });
         return true;
       case 'dashboard_home':
         if (session.followUp) delete session.followUp;
@@ -158,6 +200,46 @@ class DashboardHandler {
         return true;
       case 'dm_cancel':
         await this.handleDirectMessageCancel(interaction);
+        return true;
+      case 'dashboard_reminders':
+        await this.handleReminderCenter(interaction);
+        return true;
+      case 'reminder_create':
+        await this.handleReminderCreate(interaction);
+        return true;
+      case 'reminder_type_personal':
+      case 'reminder_type_dm':
+      case 'reminder_type_channel':
+      case 'reminder_type_role':
+        await this.handleReminderTypeSelection(interaction);
+        return true;
+      case 'reminder_view':
+        await this.handleReminderView(interaction);
+        return true;
+      case 'reminder_edit':
+        await this.handleReminderEdit(interaction);
+        return true;
+      case 'reminder_delete':
+        await this.handleReminderDelete(interaction);
+        return true;
+      case 'reminder_delete_yes':
+      case 'reminder_delete_no':
+        await reminderDelete.confirmDelete(interaction);
+        return true;
+      case 'reminder_upcoming':
+        await this.handleReminderUpcoming(interaction);
+        return true;
+      case 'reminder_view_prev':
+        await this.handleReminderPageChange(interaction, -1);
+        return true;
+      case 'reminder_view_next':
+        await this.handleReminderPageChange(interaction, 1);
+        return true;
+      case 'reminder_view_edit':
+        await this.handleReminderEdit(interaction);
+        return true;
+      case 'reminder_view_delete':
+        await this.handleReminderDelete(interaction);
         return true;
       case 'settings_staff_channel':
       case 'settings_logs_channel':
@@ -245,6 +327,64 @@ class DashboardHandler {
   async handleTicketTranscript(interaction) {
     await interaction.deferReply({ ephemeral: true });
     await interaction.followUp({ content: 'Please use !tickettranscript inside the ticket channel to generate a transcript.', ephemeral: true });
+  }
+
+  async handleReminderCenter(interaction) {
+    await interaction.update({ embeds: [createReminderCenterEmbed()], components: getReminderCenterComponents() });
+  }
+
+  async handleReminderCreate(interaction) {
+    await reminderCreate.handleReminderCreate(interaction);
+  }
+
+  async handleReminderTypeSelection(interaction) {
+    const type = interaction.customId.replace('reminder_type_', '');
+    const labels = {
+      personal: 'Personal Reminder',
+      dm: 'DM Reminder',
+      channel: 'Channel Reminder',
+      role: 'Role Reminder',
+    };
+    const selectedLabel = labels[type] || 'Reminder';
+
+    await interaction.update({
+      embeds: [createReminderEmbed(interaction.user, 2, `${selectedLabel} selected`)],
+      components: [require('../ui/components').createNavigationButtons()],
+    });
+  }
+
+  async handleReminderView(interaction) {
+    const session = this.sessions.get(interaction.user.id);
+    const page = session?.followUp?.reminderPage || 1;
+    const embed = reminderManager.buildReminderListEmbed(interaction.guild.id, page);
+    await interaction.update({ embeds: [embed], components: reminderManager.createReminderPaginationComponents(page) });
+    if (session) {
+      session.followUp = { ...session.followUp, reminderPage: page };
+      this.sessions.set(interaction.user.id, session);
+    }
+  }
+
+  async handleReminderUpcoming(interaction) {
+    const embed = reminderManager.buildUpcomingEmbed(interaction.guild.id);
+    await interaction.update({ embeds: [embed], components: [require('../ui/components').createNavigationButtons()] });
+  }
+
+  async handleReminderEdit(interaction) {
+    await interaction.reply({ embeds: [infoEmbed('Reminder Edit', 'Use View Reminders and select a reminder by ID to edit. This feature is coming soon.')], ephemeral: true });
+  }
+
+  async handleReminderDelete(interaction) {
+    await interaction.reply({ embeds: [infoEmbed('Reminder Delete', 'Use View Reminders and note the reminder ID, then run the delete command or use the delete workflow once available.')], ephemeral: true });
+  }
+
+  async handleReminderPageChange(interaction, direction) {
+    const session = this.sessions.get(interaction.user.id) || {};
+    const currentPage = session.followUp?.reminderPage || 1;
+    const nextPage = Math.max(1, currentPage + direction);
+    const embed = reminderManager.buildReminderListEmbed(interaction.guild.id, nextPage);
+    await interaction.update({ embeds: [embed], components: reminderManager.createReminderPaginationComponents(nextPage) });
+    session.followUp = { ...(session.followUp || {}), reminderPage: nextPage };
+    this.sessions.set(interaction.user.id, session);
   }
 
   startDMWorkflow(userId, channelId, guildId, followUpState) {

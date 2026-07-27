@@ -18,6 +18,12 @@ function createSecondaryButtons() {
   );
 }
 
+function createReminderButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('dashboard_reminders').setLabel('Reminder Center').setStyle(ButtonStyle.Success).setEmoji('⏰'),
+  );
+}
+
 function createNavigationButtons() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('dashboard_home').setLabel('Home').setStyle(ButtonStyle.Secondary).setEmoji('🏠'),
@@ -161,6 +167,7 @@ function disableComponents(components) {
 module.exports = {
   createMainButtons,
   createSecondaryButtons,
+  createReminderButtons,
   createNavigationButtons,
   createRoleManagerButtons,
   createAnalyticsButtons,
