@@ -67,8 +67,20 @@ module.exports = {
       }
     }
 
-    const members = message.guild.members.cache.filter((member) => !member.user.bot);
-    const nonReactors = members
+    const { PermissionsBitField } = require('discord.js');
+    const requiredPermissions = [
+      PermissionsBitField.Flags.ViewChannel,
+      PermissionsBitField.Flags.ReadMessageHistory,
+      PermissionsBitField.Flags.AddReactions,
+    ];
+
+    const eligibleMembers = message.guild.members.cache.filter((member) => {
+      if (member.user.bot) return false;
+      const permissions = channel.permissionsFor(member);
+      return permissions?.has(requiredPermissions, true);
+    });
+
+    const nonReactors = eligibleMembers
       .filter((member) => !reactionUsers.has(member.id))
       .map((member) => ({
         username: member.user.username,
