@@ -32,6 +32,11 @@ module.exports = async (client, interaction) => {
     return;
   }
 
+  if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) && !interaction.replied && !interaction.deferred && !['open_ticket', 'ticket_close_button'].includes(interaction.customId)) {
+    await interaction.reply({ content: 'This interaction is no longer valid or the session has expired. Please reopen the dashboard or retry the command.', ephemeral: true }).catch(() => {});
+    return;
+  }
+
   const config = db.prepare('SELECT * FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
   if (!config) {
     await interaction.reply({ embeds: [errorEmbed('Ticket System Not Setup', 'Run !ticketsetup first to initialize tickets.')], ephemeral: true });

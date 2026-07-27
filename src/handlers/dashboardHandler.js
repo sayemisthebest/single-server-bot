@@ -9,7 +9,7 @@ const { createDirectMessagesEmbed, getDirectMessageComponents } = require('../ui
 const { createMessageManagementEmbed, getMessageManagementComponents } = require('../ui/messageManagement');
 const { hasStaffPermission } = require('../utils/permissions');
 const { db } = require('../database');
-const { errorEmbed } = require('../utils/embeds');
+const { errorEmbed, infoEmbed } = require('../utils/embeds');
 const { PREFIX } = require('../config/constants');
 const dmManager = require('../modules/directMessages/dmManager');
 const messageManager = require('../modules/messageManagement/messageManager');
@@ -248,8 +248,9 @@ class DashboardHandler {
     session.followUp = followUpState;
     session.channelId = channelId;
     session.guildId = guildId;
+    // Preserve the dashboard panel message ID and keep preview message IDs in followUp.messageId.
     if (followUpState && followUpState.messageId) {
-      session.messageId = followUpState.messageId;
+      session.followUp.messageId = followUpState.messageId;
     }
     this.sessions.set(userId, session);
     this.updateSession(userId);
@@ -258,7 +259,8 @@ class DashboardHandler {
   updateSessionMessageId(userId, messageId) {
     const session = this.sessions.get(userId);
     if (!session) return;
-    session.messageId = messageId;
+    session.followUp = session.followUp || {};
+    session.followUp.messageId = messageId;
   }
 
   async handleDirectMessageSingle(interaction) {
