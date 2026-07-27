@@ -167,7 +167,7 @@ module.exports = async (client, interaction) => {
       if (mgHandled) return;
     }
 
-    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu()) {
+    if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isUserSelectMenu()) {
       const handled = await client.dashboardHandler.handleSelectMenu(interaction);
       if (handled) return;
       const mgHandled = await client.messageManager.handleInteraction(interaction);
