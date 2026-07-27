@@ -1,7 +1,27 @@
 const { db } = require('../../database');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, EmbedBuilder, ChannelType } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, StringSelectMenuBuilder, RoleSelectMenuBuilder, EmbedBuilder, ChannelType } = require('discord.js');
 const { successEmbed, errorEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+
+function createCategorySelect(guild) {
+  const categories = guild.channels.cache
+    .filter((channel) => channel.type === ChannelType.GuildCategory)
+    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+
+  if (!categories.size) return null;
+
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('ticketsetup_category')
+      .setPlaceholder('Select an existing category')
+      .setMinValues(1)
+      .setMaxValues(1)
+      .addOptions(categories.map((category) => ({
+        label: category.name || 'Unnamed Category',
+        value: category.id,
+      }))),
+  );
+}
 
 function createCancelButton() {
   return new ActionRowBuilder().addComponents(
@@ -50,11 +70,7 @@ module.exports = {
       supportRoleIds: [],
     };
 
-    const categorySelect = new ChannelSelectMenuBuilder()
-      .setCustomId('ticketsetup_category')
-      .setPlaceholder('Select an existing category')
-      .setChannelTypes([ChannelType.GuildCategory]);
-
+    const categorySelectRow = createCategorySelect(message.guild);
     const panelChannelSelect = new ChannelSelectMenuBuilder()
       .setCustomId('ticketsetup_panel_channel')
       .setPlaceholder('Select an existing text channel for the ticket panel')
@@ -72,9 +88,10 @@ module.exports = {
       .setMaxValues(25);
 
     const initialEmbed = createEmbed(1, 'Ticket Setup', 'Choose an existing category to store ticket channels.');
+    const components = categorySelectRow ? [categorySelectRow, createCancelButton()] : [createCancelButton()];
     const initialMessage = await message.reply({
       embeds: [initialEmbed],
-      components: [new ActionRowBuilder().addComponents(categorySelect), createCancelButton()],
+      components,
       fetchReply: true,
     });
 
@@ -94,7 +111,7 @@ module.exports = {
           return;
         }
 
-        if (currentStep === 1 && interaction.isChannelSelectMenu() && interaction.customId === 'ticketsetup_category') {
+        if (currentStep === 1 && interaction.isStringSelectMenu() && interaction.customId === 'ticketsetup_category') {
           setupState.categoryId = interaction.values[0];
           currentStep = 2;
           await interaction.update({

@@ -6,6 +6,10 @@ const logger = require('../utils/logger');
 module.exports = async (client, interaction) => {
   if (!interaction.guild) return;
 
+  if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) && interaction.customId?.startsWith('ticketsetup_')) {
+    return;
+  }
+
   try {
     if (interaction.isButton() && ['open_ticket', 'ticket_close_button'].includes(interaction.customId)) {
       const config = db.prepare('SELECT * FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
@@ -139,7 +143,7 @@ module.exports = async (client, interaction) => {
     return;
   }
 
-  if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) && !interaction.replied && !interaction.deferred) {
+  if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) && !interaction.replied && !interaction.deferred && !interaction.customId?.startsWith('ticketsetup_')) {
     await interaction.reply({ content: 'This interaction is no longer valid or the session has expired. Please reopen the dashboard or retry the command.', ephemeral: true }).catch(() => {});
   }
 };

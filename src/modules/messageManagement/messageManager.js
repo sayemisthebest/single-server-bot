@@ -113,8 +113,24 @@ async function handleInteraction(interaction) {
   }
 
   const session = deleteSession.getSession(interaction.user.id);
-  if (!session || session.messageId !== interaction.message.id) {
-    return false;
+  const requiresSession = new Set([
+    'mm_channel_recent',
+    'mm_channel_user',
+    'mm_count_recent',
+    'mm_count_user',
+    'mm_user_select',
+    'mm_confirm_delete',
+    'mm_cancel_delete',
+  ]);
+
+  if (requiresSession.has(interaction.customId)) {
+    if (!session || session.messageId !== interaction.message.id) {
+      return false;
+    }
+  } else {
+    if (!session || session.messageId !== interaction.message.id) {
+      deleteSession.startSession(interaction.user.id, interaction.channel.id, interaction.guild.id, { type: 'main_menu', messageId: interaction.message.id });
+    }
   }
 
   if (!isAuthorized(interaction.member)) {
