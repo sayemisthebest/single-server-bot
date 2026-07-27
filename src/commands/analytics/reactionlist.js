@@ -1,8 +1,6 @@
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
-const fs = require('fs');
-const path = require('path');
 
 function parseMessageLink(link) {
   const regex = /https?:\/\/(?:ptb|canary\.)?discord(?:app)?\.com\/channels\/(?<guild>\d+)\/(?<channel>\d+)\/(?<message>\d+)/;
@@ -67,9 +65,7 @@ module.exports = {
 
     const csvRows = [...reactionUsers, ...nonReacted];
     const csv = 'Username,Display Name,Nickname,Discord ID,Reaction Emoji\n' + csvRows.map((row) => `${row.username},${row.displayName},${row.nickname},${row.id},${row.reaction}`).join('\n');
-    const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-reactionlist.csv`);
-    fs.writeFileSync(outputPath, csv, 'utf8');
-    const attachment = new AttachmentBuilder(outputPath).setName('reactionlist.csv');
+    const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: 'reactionlist.csv' });
 
     await message.reply({
       embeds: [successEmbed('Reaction Analysis Complete', `Processed ${csvRows.length} users.`)],

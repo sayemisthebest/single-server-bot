@@ -1,8 +1,6 @@
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed, warningEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
-const fs = require('fs');
-const path = require('path');
 
 function parseMonth(monthText) {
   if (!monthText) return null;
@@ -172,9 +170,7 @@ module.exports = {
     }
 
     const csv = 'Author ID,Username,Messages,Words,Images,Attachments,Links\n' + rows.map((row) => `${row.author_id},${row.username},${row.messages},${row.words || 0},${row.images || 0},${row.attachments || 0},${row.links || 0}`).join('\n');
-    const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${target.id}-topposter-${monthInfo.year}-${String(monthInfo.month).padStart(2, '0')}.csv`);
-    fs.writeFileSync(outputPath, csv, 'utf8');
-    const attachment = new AttachmentBuilder(outputPath).setName('topposter.csv');
+    const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: `topposter-${monthLabel}.csv` });
 
     await sendInteractionResponse(target, {
       embeds: [successEmbed('Monthly Top Poster Report', `Top 50 results exported for ${channel} for ${monthLabel}.`)],
