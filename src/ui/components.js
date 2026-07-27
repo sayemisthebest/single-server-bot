@@ -155,6 +155,7 @@ module.exports = {
   createLogsExportButton,
   createRoleSelect,
   createChannelSelect,
+  createMonthSelect,
   createModal,
   disableComponents,
 };
