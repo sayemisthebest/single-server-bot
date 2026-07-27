@@ -134,7 +134,6 @@ module.exports = async (client, interaction) => {
       await channel.send({ embeds: [successEmbed('Ticket Opened', `Welcome ${interaction.user}. A staff member will join soon.`)], components: [closeButton] });
       await interaction.reply({ embeds: [successEmbed('Ticket Created', `Your ticket has been opened: ${channel}`)], ephemeral: true });
 
-      const ticketLimit = normalizeTicketLimit(config.daily_ticket_limit ?? 1);
       if (ticketLimit > 0) {
         const today = getTodayUTCDate();
         const nowISO = new Date().toISOString();

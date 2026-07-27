@@ -67,7 +67,7 @@ class DashboardHandler {
 
   async handleInteraction(interaction) {
     const session = this.getSession(interaction.user.id);
-    if (!session || (session.messageId !== interaction.message.id && session.followUp?.messageId !== interaction.message.id)) {
+    if (!session || session.guildId !== interaction.guild.id) {
       return false;
     }
 
@@ -325,7 +325,7 @@ class DashboardHandler {
 
   async handleSelectMenu(interaction) {
     const session = this.getSession(interaction.user.id);
-    if (!session || session.messageId !== interaction.message.id) {
+    if (!session || session.guildId !== interaction.guild.id) {
       return;
     }
 

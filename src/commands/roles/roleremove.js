@@ -93,7 +93,15 @@ module.exports = {
       `Failed (ambiguous or error): ${failedMultiple.length + failed.length}`,
     ];
     await message.reply({ embeds: [successEmbed('Role Removal Complete', summaryLines.join('\n'))] });
-    const csv = 'Username,Status\n' + [...added.map((item) => `${item},Removed`), ...skipped.map((item) => `${item},Skipped`), ...failed.map((item) => `${item},Failed`)].join('\n');
+
+    const csvRows = [
+      ...removed.map((username) => `${username},Removed`),
+      ...skippedNotFound.map((username) => `${username},Skipped - Not Found`),
+      ...skippedNoRole.map((username) => `${username},Skipped - No Role`),
+      ...failedMultiple.map((username) => `${username},Failed - Multiple Matches`),
+      ...failed.map((username) => `${username},Failed - Error`),
+    ];
+    const csv = 'Username,Status\n' + csvRows.join('\n');
     const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleremove.csv`);
     fs.writeFileSync(outputPath, csv, 'utf8');
     const csvAttachment = new AttachmentBuilder(outputPath).setName('roleremove.csv');

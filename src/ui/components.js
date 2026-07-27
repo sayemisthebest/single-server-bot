@@ -173,6 +173,7 @@ module.exports = {
   createRoleSelect,
   createChannelSelect,
   createMonthSelect,
+  createTicketLimitSelect,
   createModal,
   disableComponents,
 };

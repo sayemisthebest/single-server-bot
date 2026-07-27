@@ -20,7 +20,7 @@ class FallbackDatabase {
   constructor(filePath) {
     this.filePath = filePath;
     this.tables = {};
-    this.knownTables = ['guild_configs', 'ticket_configs', 'message_logs', 'analytics', 'ticket_logs', 'ticket_daily_counts'];
+    this.knownTables = ['guild_configs', 'ticket_configs', 'ticket_logs', 'ticket_daily_counts'];
     this.load();
   }
 
@@ -62,7 +62,7 @@ class FallbackDatabase {
   }
 
   prepare(sql) {
-    const normalized = sql.trim();
+    const normalized = sql.replace(/\s+/g, ' ').trim();
     return {
       run: (...args) => this.run(normalized, args),
       get: (...args) => this.get(normalized, args),
@@ -71,12 +71,12 @@ class FallbackDatabase {
   }
 
   run(sql, args) {
-    const insertMatch = sql.match(/^INSERT(?: OR (IGNORE|REPLACE))? INTO (\w+) \((.*?)\) VALUES \((.*?)\)/i);
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+    const insertMatch = normalized.match(/^INSERT(?: OR (IGNORE|REPLACE))? INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\);?$/i);
     if (insertMatch) {
-      const [, mode, tableName, columns, values] = insertMatch;
+      const [, mode, tableName, columns] = insertMatch;
       this.ensureTable(tableName);
       const columnList = columns.split(',').map((item) => item.trim());
-      const valueList = values.split(',').map((item) => item.trim());
       const row = {};
       columnList.forEach((column, index) => {
         row[column] = args[index];
@@ -92,7 +92,7 @@ class FallbackDatabase {
       return { changes: 1, lastInsertRowid: this.tables[tableName].length };
     }
 
-    const updateMatch = sql.match(/^UPDATE (\w+) SET (.+?) WHERE (.+)$/i);
+    const updateMatch = normalized.match(/^UPDATE\s+(\w+)\s+SET\s+(.+?)\s+WHERE\s+(.+?);?$/i);
     if (updateMatch) {
       const [, tableName, setClause, whereClause] = updateMatch;
       this.ensureTable(tableName);
@@ -127,7 +127,8 @@ class FallbackDatabase {
   }
 
   get(sql, args) {
-    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+)$/i);
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+    const selectMatch = normalized.match(/^SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+(.+)$/i);
     if (selectMatch) {
       const [, selectedColumns, tableName, whereClause] = selectMatch;
       this.ensureTable(tableName);
@@ -144,7 +145,9 @@ class FallbackDatabase {
   }
 
   all(sql, args) {
-    const selectMatch = sql.match(/^SELECT (.+?) FROM (\w+) WHERE (.+)$/i);
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+
+    const selectMatch = normalized.match(/^SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+(.+?)$/i);
     if (selectMatch) {
       const [, selectedColumns, tableName, whereClause] = selectMatch;
       this.ensureTable(tableName);
@@ -153,29 +156,6 @@ class FallbackDatabase {
         const column = cond.replace(/\s*=\s*\?$/, '').trim();
         return item[column] === args[index];
       }));
-    }
-
-    const analyticMatch = sql.match(/^SELECT (.+) FROM analytics WHERE guild_id = \? AND channel_id = \?(?: AND timestamp >= \? AND timestamp < \?)? GROUP BY author_id ORDER BY messages DESC LIMIT 50$/i);
-    if (analyticMatch) {
-      const table = this.tables.analytics || [];
-      let filtered = table.filter((item) => item.guild_id === args[0] && item.channel_id === args[1]);
-      if (args.length >= 4) {
-        const start = args[2];
-        const end = args[3];
-        filtered = filtered.filter((item) => item.timestamp >= start && item.timestamp < end);
-      }
-      const aggregated = filtered.reduce((acc, item) => {
-        if (!acc[item.author_id]) {
-          acc[item.author_id] = { author_id: item.author_id, messages: 0, words: 0, images: 0, attachments: 0, links: 0 };
-        }
-        acc[item.author_id].messages += 1;
-        acc[item.author_id].words += item.word_count || 0;
-        acc[item.author_id].images += item.image_count || 0;
-        acc[item.author_id].attachments += item.attachment_count || 0;
-        acc[item.author_id].links += item.link_count || 0;
-        return acc;
-      }, {});
-      return Object.values(aggregated).sort((a, b) => b.messages - a.messages).slice(0, 50);
     }
 
     return [];
@@ -230,35 +210,6 @@ function initializeDatabase() {
       last_ticket_timestamp TEXT,
       reset_date TEXT,
       UNIQUE (guild_id, user_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS message_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
-      message_id TEXT NOT NULL,
-      author_id TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      word_count INTEGER DEFAULT 0,
-      attachments INTEGER DEFAULT 0,
-      images INTEGER DEFAULT 0,
-      links INTEGER DEFAULT 0,
-      edited INTEGER DEFAULT 0,
-      deleted INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS analytics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
-      author_id TEXT NOT NULL,
-      message_id TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      attachment_count INTEGER DEFAULT 0,
-      image_count INTEGER DEFAULT 0,
-      link_count INTEGER DEFAULT 0,
-      word_count INTEGER DEFAULT 0,
-      message_length INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS ticket_logs (

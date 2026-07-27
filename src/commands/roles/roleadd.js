@@ -97,8 +97,15 @@ module.exports = {
       `Failed (ambiguous or error): ${failedMultiple.length + failed.length}`,
     ];
     await message.reply({ embeds: [successEmbed('Role Assignment Complete', summaryLines.join('\n'))] });
-    if (added.length || skipped.length || failed.length) {
-      const csv = 'Username,Status\n' + [...added.map((item) => `${item},Added`), ...skipped.map((item) => `${item},Skipped`), ...failed.map((item) => `${item},Failed`)].join('\n');
+    const csvRows = [
+      ...added.map((username) => `${username},Added`),
+      ...skippedNotFound.map((username) => `${username},Skipped - Not Found`),
+      ...skippedAlready.map((username) => `${username},Skipped - Already Has Role`),
+      ...failedMultiple.map((username) => `${username},Failed - Multiple Matches`),
+      ...failed.map((username) => `${username},Failed - Error`),
+    ];
+    if (csvRows.length > 0) {
+      const csv = 'Username,Status\n' + csvRows.join('\n');
       const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleadd.csv`);
       fs.writeFileSync(outputPath, csv, 'utf8');
       const attachment = new AttachmentBuilder(outputPath).setName('roleadd.csv');
