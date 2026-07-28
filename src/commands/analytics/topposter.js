@@ -169,7 +169,7 @@ module.exports = {
       return;
     }
 
-    const csv = 'Username\n' + rows.map((row) => row.username).join('\n');
+    const csv = 'Username,Messages\n' + rows.map((row) => `${row.username},${row.messages}`).join('\n');
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: `topposter-${monthLabel}.csv` });
 
     await sendInteractionResponse(target, {
