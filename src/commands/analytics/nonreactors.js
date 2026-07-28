@@ -82,16 +82,9 @@ module.exports = {
 
     const nonReactors = eligibleMembers
       .filter((member) => !reactionUsers.has(member.id))
-      .map((member) => ({
-        username: member.user.username,
-        displayName: member.displayName || member.user.username,
-        nickname: member.nickname || '',
-        id: member.id,
-      }));
+      .map((member) => member.user.username);
 
-    const csv = 'Username,Display Name,Nickname,Discord ID\n' + nonReactors
-      .map((member) => `${member.username},${member.displayName},${member.nickname},${member.id}`)
-      .join('\n');
+    const csv = 'Username\n' + nonReactors.join('\n');
 
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: 'nonreactors.csv' });
 
