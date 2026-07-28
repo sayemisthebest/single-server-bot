@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node src/index.js",
-    "build": "node -e \"console.log('No build step required')\""
+    "build": "node -e \"console.log('No build step required')\"",
+    "lint": "eslint src",
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -16,5 +18,8 @@
     "better-sqlite3": "^11.7.0",
     "discord.js": "^14.16.1",
     "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
   }
 }
