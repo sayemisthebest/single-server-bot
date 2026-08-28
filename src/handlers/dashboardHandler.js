@@ -106,7 +106,8 @@ class DashboardHandler {
 
   async handleInteraction(interaction) {
     const session = this.getSession(interaction.user.id);
-    if (!session || session.guildId !== interaction.guild.id) {
+    const sessionMessageId = session?.followUp?.messageId || session?.messageId;
+    if (!session || !interaction.guild || session.guildId !== interaction.guild.id || session.channelId !== interaction.channel.id || sessionMessageId !== interaction.message.id || !hasStaffPermission(interaction.member)) {
       return false;
     }
 
@@ -500,7 +501,7 @@ class DashboardHandler {
 
   async handleSelectMenu(interaction) {
     const session = this.getSession(interaction.user.id);
-    if (!session || session.guildId !== interaction.guild.id) {
+    if (!session || !interaction.guild || session.guildId !== interaction.guild.id || session.channelId !== interaction.channel.id || session.messageId !== interaction.message.id || !hasStaffPermission(interaction.member)) {
       return;
     }
 
@@ -577,7 +578,7 @@ class DashboardHandler {
   async handleFollowUpMessage(message) {
     const session = this.getSession(message.author.id);
     if (!session || !session.followUp) return;
-    if (session.followUp.type !== 'reminder_create' && session.channelId !== message.channel.id) return;
+    if (session.guildId !== message.guild?.id || session.channelId !== message.channel.id || !hasStaffPermission(message.member)) return;
     if (session.followUp.type !== 'reminder_create' && message.content.startsWith(PREFIX) && !['dm_single_content', 'dm_mass_content'].includes(session.followUp.type)) return;
 
     if (session.followUp.type === 'reminder_create') {

@@ -1,5 +1,6 @@
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { isTicketChannel } = require('../../utils/tickets');
 
 module.exports = {
   name: 'ticketclose',
@@ -11,8 +12,8 @@ module.exports = {
       return;
     }
 
-    if (!message.channel.name.includes('ticket')) {
-      await message.reply({ embeds: [errorEmbed('Invalid Ticket Channel', 'This command can only be used in a ticket channel.')] });
+    if (!isTicketChannel(message.channel, message.guild)) {
+      await message.reply({ embeds: [errorEmbed('Invalid Ticket Channel', 'This command can only be used inside a configured ticket channel.')] });
       return;
     }
 

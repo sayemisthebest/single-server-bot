@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const { PREFIX } = require('../config/constants');
+const { db } = require('../database');
 
 class CommandHandler {
   constructor(client) {
@@ -29,9 +30,15 @@ class CommandHandler {
 
   async handle(message) {
     if (!message.content.startsWith(PREFIX) || message.author.bot) return;
+    if (!message.guild) return;
+
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const commandName = args.shift()?.toLowerCase();
     if (!commandName) return;
+
+    const guildConfig = db.prepare('SELECT staff_channel_id FROM guild_configs WHERE guild_id = ?').get(message.guild.id);
+    const ticketCommands = new Set(['ticketclose', 'ticketclaim', 'ticketadd', 'ticketremove', 'ticketrename', 'tickettranscript']);
+    if (guildConfig?.staff_channel_id && message.channel.id !== guildConfig.staff_channel_id && !ticketCommands.has(commandName)) return;
 
     const command = this.commands.get(commandName);
     if (!command) return;

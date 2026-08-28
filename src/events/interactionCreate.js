@@ -2,6 +2,8 @@ const { db } = require('../database');
 const { PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { successEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
 const logger = require('../utils/logger');
+const { hasStaffPermission } = require('../utils/permissions');
+const { isTicketChannel } = require('../utils/tickets');
 
 function normalizeTicketLimit(value) {
   const limit = Number(value);
@@ -31,7 +33,8 @@ module.exports = async (client, interaction) => {
       }
 
       if (interaction.customId === 'ticket_close_button') {
-        if (!interaction.channel || !interaction.channel.name.toLowerCase().includes('ticket')) {
+        const ticketOwnerId = interaction.channel?.topic?.match(/^ticket-owner:(\d{17,19})$/)?.[1];
+        if (!isTicketChannel(interaction.channel, interaction.guild) || (!hasStaffPermission(interaction.member) && ticketOwnerId !== interaction.user.id)) {
           await interaction.reply({ embeds: [errorEmbed('Invalid Ticket', 'This button can only be used inside a ticket channel.')], ephemeral: true });
           return;
         }
@@ -39,7 +42,6 @@ module.exports = async (client, interaction) => {
         await interaction.reply({ embeds: [successEmbed('Ticket Closed', 'The ticket has been closed and the channel will be deleted.')], ephemeral: true });
 
         const ticketChannel = interaction.channel;
-        const ticketOwnerId = ticketChannel.topic?.match(/ticket-owner:(\d{17,19})/)?.[1];
         if (config.logs_id) {
           const logsChannel = interaction.guild.channels.cache.get(config.logs_id);
           if (logsChannel?.isTextBased()) {

@@ -13,8 +13,14 @@ module.exports = {
     }
 
     const channel = message.mentions.channels.first() || message.guild.channels.cache.get(args[0]);
-    if (!channel) {
+    if (!channel?.isTextBased?.() || !channel.permissionsFor) {
       await message.reply({ embeds: [errorEmbed('Invalid Channel', 'Please mention a valid channel or provide a channel ID.')] });
+      return;
+    }
+
+    const everyoneCanView = channel.permissionsFor(message.guild.roles.everyone)?.has('ViewChannel');
+    if (everyoneCanView) {
+      await message.reply({ embeds: [errorEmbed('Channel Must Be Private', 'The staff channel must deny View Channel to @everyone before it can be configured.')] });
       return;
     }
 
