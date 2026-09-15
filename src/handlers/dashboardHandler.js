@@ -175,6 +175,9 @@ class DashboardHandler {
       case 'analytics_nonreactors':
         await this.handleAnalyticsNonReactors(interaction);
         return true;
+      case 'analytics_postcount':
+        await this.handleAnalyticsPostCount(interaction);
+        return true;
       case 'ticket_create_panel':
         await this.handleTicketCreatePanel(interaction);
         return true;
@@ -297,6 +300,11 @@ class DashboardHandler {
   async handleAnalyticsNonReactors(interaction) {
     await interaction.update({ content: 'Please send a Discord message link for the nonreactors report.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
     this.setFollowUp(interaction.user.id, 'analytics_nonreactors');
+  }
+
+  async handleAnalyticsPostCount(interaction) {
+    const channelSelect = require('../ui/components').createChannelSelect('postcount_channel_select', 'Select a text channel', [0]);
+    await interaction.update({ content: 'Select a text channel to count human-authored posts.', embeds: [], components: [channelSelect, require('../ui/components').createNavigationButtons()] });
   }
 
   async handleTicketCreatePanel(interaction) {
@@ -541,6 +549,12 @@ class DashboardHandler {
       const monthSelect = require('../ui/components').createMonthSelect('topposter_month_select', 'Select a month', monthOptions);
       await interaction.update({ content: 'Select the month to report on.', embeds: [], components: [monthSelect, require('../ui/components').createNavigationButtons()] });
       return;
+    }
+
+    if (interaction.customId === 'postcount_channel_select') {
+      const channelId = interaction.values[0];
+      await require('../commands/analytics/postcount').execute(interaction, [channelId]);
+      return true;
     }
 
     if (interaction.customId === 'topposter_month_select') {

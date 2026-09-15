@@ -9,7 +9,7 @@ function createHelpEmbed() {
     .addFields(
       { name: 'Setup', value: '`!setup`, `!setstaffchannel #channel`, `!config`, `!resetconfig`' },
       { name: 'Role Management', value: '`!roleadd @Role`, `!roleremove @Role`, `!roleexport @Role`' },
-      { name: 'Analytics', value: '`!reactionlist <message_link>`, `!afterpost <message_link>`, `!topposter #channel`, `!nonreactors <message_link>`' },
+      { name: 'Analytics', value: '`!reactionlist <message_link>`, `!afterpost <message_link>`, `!topposter #channel`, `!nonreactors <message_link>`, `!postcount #channel`' },
       { name: 'Direct Messages', value: '`!dm <@user|user_id> <message>`, `!massdm <@role|@everyone|user_id ...> <message>`' },
       { name: 'Message Management', value: '`!delete`' },
       { name: 'Ticket System', value: '`!ticketsetup`, `!ticketclose`, `!ticketrename`, `!ticketadd`, `!ticketremove`, `!ticketclaim`, `!tickettranscript`' },

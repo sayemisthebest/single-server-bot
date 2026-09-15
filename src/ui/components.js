@@ -46,6 +46,7 @@ function createAnalyticsButtons() {
     new ButtonBuilder().setCustomId('analytics_afterpost').setLabel('After Post').setStyle(ButtonStyle.Success).setEmoji('🟢'),
     new ButtonBuilder().setCustomId('analytics_topposter').setLabel('Monthly Top Poster').setStyle(ButtonStyle.Secondary).setEmoji('🟣'),
     new ButtonBuilder().setCustomId('analytics_nonreactors').setLabel('Nonreactors').setStyle(ButtonStyle.Secondary).setEmoji('🚫'),
+    new ButtonBuilder().setCustomId('analytics_postcount').setLabel('Post Count').setStyle(ButtonStyle.Primary).setEmoji('🔢'),
   );
 }
 

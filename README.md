@@ -86,6 +86,7 @@ https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=40
 - !afterpost <message_link>
 - !roleexport @Role
 - !topposter #channel
+- !postcount #channel
 - !ticketsetup
 - !ticketclose
 - !ticketrename
