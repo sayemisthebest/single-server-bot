@@ -178,6 +178,9 @@ class DashboardHandler {
       case 'analytics_postcount':
         await this.handleAnalyticsPostCount(interaction);
         return true;
+      case 'analytics_role_nonreactors':
+        await this.handleAnalyticsRoleNonreactors(interaction);
+        return true;
       case 'ticket_create_panel':
         await this.handleTicketCreatePanel(interaction);
         return true;
@@ -305,6 +308,10 @@ class DashboardHandler {
   async handleAnalyticsPostCount(interaction) {
     const channelSelect = require('../ui/components').createChannelSelect('postcount_channel_select', 'Select a text channel', [0]);
     await interaction.update({ content: 'Select a text channel to count human-authored posts.', embeds: [], components: [channelSelect, require('../ui/components').createNavigationButtons()] });
+  }
+
+  async handleAnalyticsRoleNonreactors(interaction) {
+    await interaction.update({ content: 'Select the role whose members should be checked.', embeds: [], components: [require('../ui/components').createRoleSelect('role_select_nonreactors'), require('../ui/components').createNavigationButtons()] });
   }
 
   async handleTicketCreatePanel(interaction) {
@@ -535,6 +542,13 @@ class DashboardHandler {
       return;
     }
 
+    if (interaction.customId === 'role_select_nonreactors') {
+      const roleId = interaction.values[0];
+      session.followUp = { type: 'role_nonreactors', roleId };
+      await interaction.update({ content: 'Please send a Discord message link to check for nonreactors in this role.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+      return;
+    }
+
     if (interaction.customId === 'topposter_channel_select') {
       const channelId = interaction.values[0];
       const monthOptions = [];
@@ -636,6 +650,13 @@ class DashboardHandler {
     if (session.followUp === 'analytics_nonreactors') {
       const command = require('../commands/analytics/nonreactors');
       await command.execute(message, [message.content.trim()]);
+      delete session.followUp;
+      return;
+    }
+
+    if (session.followUp.type === 'role_nonreactors') {
+      const command = require('../commands/analytics/roleNonreactors');
+      await command.execute(message, [session.followUp.roleId, message.content.trim()]);
       delete session.followUp;
       return;
     }

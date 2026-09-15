@@ -83,6 +83,7 @@ https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=40
 - !roleadd @Role
 - !roleremove @Role
 - !reactionlist <message_link>
+- !rolenonreactors @Role <message_link>
 - !afterpost <message_link>
 - !roleexport @Role
 - !topposter #channel

@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { createAnalyticsButtons, createNavigationButtons } = require('./components');
+const { createAnalyticsButtons, createAnalyticsSecondaryButtons, createNavigationButtons } = require('./components');
 
 function createAnalyticsEmbed() {
   return new EmbedBuilder()
@@ -11,7 +11,7 @@ function createAnalyticsEmbed() {
 }
 
 function getAnalyticsComponents() {
-  return [createAnalyticsButtons(), createNavigationButtons()];
+  return [createAnalyticsButtons(), createAnalyticsSecondaryButtons(), createNavigationButtons()];
 }
 
 module.exports = { createAnalyticsEmbed, getAnalyticsComponents };
