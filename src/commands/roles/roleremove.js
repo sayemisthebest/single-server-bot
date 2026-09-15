@@ -3,11 +3,11 @@ const path = require('path');
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed, warningEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
-const { createCSV } = require('../../utils/csv');
+const { createCSV, parseUsernameList } = require('../../utils/csv');
 
 module.exports = {
   name: 'roleremove',
-  description: 'Remove a role from members from a TXT upload.',
+  description: 'Remove a role from members from a TXT/CSV upload.',
   async execute(message, args) {
     if (!message.guild) return;
     if (!hasStaffPermission(message.member)) {
@@ -17,12 +17,13 @@ module.exports = {
 
     const attachment = message.attachments.first();
     if (!attachment) {
-      await message.reply({ embeds: [errorEmbed('Missing File', 'Please upload a TXT file containing usernames, one per line.')] });
+      await message.reply({ embeds: [errorEmbed('Missing File', 'Please upload a TXT or CSV file containing usernames, one per line.')] });
       return;
     }
 
-    if (!attachment.name.toLowerCase().endsWith('.txt')) {
-      await message.reply({ embeds: [errorEmbed('Wrong File Type', 'Please upload a TXT file.')] });
+    const fileName = attachment.name.toLowerCase();
+    if (!fileName.endsWith('.txt') && !fileName.endsWith('.csv')) {
+      await message.reply({ embeds: [errorEmbed('Wrong File Type', 'Please upload a TXT or CSV file.')] });
       return;
     }
 
@@ -42,7 +43,7 @@ module.exports = {
 
     const response = await fetch(attachment.url);
     const content = await response.text();
-    const usernames = Array.from(new Set(content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)));
+    const usernames = parseUsernameList(content);
     const removed = [];
     const skippedNotFound = [];
     const skippedNoRole = [];

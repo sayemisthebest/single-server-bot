@@ -525,14 +525,14 @@ class DashboardHandler {
     if (interaction.customId === 'role_select_add') {
       const roleId = interaction.values[0];
       session.followUp = { type: 'role_add', roleId };
-      await interaction.update({ content: 'Role selected. Please upload a TXT file in this channel.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+      await interaction.update({ content: 'Role selected. Please upload a TXT or CSV file in this channel.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
       return;
     }
 
     if (interaction.customId === 'role_select_remove') {
       const roleId = interaction.values[0];
       session.followUp = { type: 'role_remove', roleId };
-      await interaction.update({ content: 'Role selected. Please upload a TXT file in this channel.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
+      await interaction.update({ content: 'Role selected. Please upload a TXT or CSV file in this channel.', embeds: [], components: [require('../ui/components').createNavigationButtons()] });
       return;
     }
 
