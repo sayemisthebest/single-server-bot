@@ -1,5 +1,5 @@
 const { db } = require('../database');
-const { PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { successEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
 const logger = require('../utils/logger');
 const { hasStaffPermission } = require('../utils/permissions');
@@ -28,18 +28,18 @@ module.exports = async (client, interaction) => {
     if (interaction.isButton() && ['open_ticket', 'ticket_close_button'].includes(interaction.customId)) {
       const config = db.prepare('SELECT * FROM ticket_configs WHERE guild_id = ?').get(interaction.guild.id);
       if (!config) {
-        await interaction.reply({ embeds: [errorEmbed('Ticket System Not Setup', 'Run !ticketsetup first to initialize tickets.')], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed('Ticket System Not Setup', 'Run !ticketsetup first to initialize tickets.')], flags: MessageFlags.Ephemeral });
         return;
       }
 
       if (interaction.customId === 'ticket_close_button') {
         const ticketOwnerId = interaction.channel?.topic?.match(/^ticket-owner:(\d{17,19})$/)?.[1];
         if (!isTicketChannel(interaction.channel, interaction.guild) || (!hasStaffPermission(interaction.member) && ticketOwnerId !== interaction.user.id)) {
-          await interaction.reply({ embeds: [errorEmbed('Invalid Ticket', 'This button can only be used inside a ticket channel.')], ephemeral: true });
+          await interaction.reply({ embeds: [errorEmbed('Invalid Ticket', 'This button can only be used inside a ticket channel.')], flags: MessageFlags.Ephemeral });
           return;
         }
 
-        await interaction.reply({ embeds: [successEmbed('Ticket Closed', 'The ticket has been closed and the channel will be deleted.')], ephemeral: true });
+        await interaction.reply({ embeds: [successEmbed('Ticket Closed', 'The ticket has been closed and the channel will be deleted.')], flags: MessageFlags.Ephemeral });
 
         const ticketChannel = interaction.channel;
         if (config.logs_id) {
@@ -57,7 +57,7 @@ module.exports = async (client, interaction) => {
 
       const category = interaction.guild.channels.cache.get(config.category_id);
       if (!category || category.type !== ChannelType.GuildCategory) {
-        await interaction.reply({ embeds: [errorEmbed('Ticket Category Missing', 'The ticket category could not be found.')], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed('Ticket Category Missing', 'The ticket category could not be found.')], flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -70,7 +70,7 @@ module.exports = async (client, interaction) => {
         if (currentCount >= ticketLimit) {
           await interaction.reply({
             embeds: [errorEmbed('Ticket Limit Reached', `You have reached today's ticket limit.\n\nDaily Limit:\n${ticketLimit}\n\nYou may create another ticket after the daily reset.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
           return;
         }
@@ -80,7 +80,7 @@ module.exports = async (client, interaction) => {
         channel.parentId === category.id && channel.topic === `ticket-owner:${interaction.user.id}`
       );
       if (existingChannel) {
-        await interaction.reply({ embeds: [infoEmbed('Ticket Already Open', `You already have a ticket: ${existingChannel}`)], ephemeral: true });
+        await interaction.reply({ embeds: [infoEmbed('Ticket Already Open', `You already have a ticket: ${existingChannel}`)], flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -134,7 +134,7 @@ module.exports = async (client, interaction) => {
       );
 
       await channel.send({ embeds: [successEmbed('Ticket Opened', `Welcome ${interaction.user}. A staff member will join soon.`)], components: [closeButton] });
-      await interaction.reply({ embeds: [successEmbed('Ticket Created', `Your ticket has been opened: ${channel}`)], ephemeral: true });
+      await interaction.reply({ embeds: [successEmbed('Ticket Created', `Your ticket has been opened: ${channel}`)], flags: MessageFlags.Ephemeral });
 
       if (ticketLimit > 0) {
         const today = getTodayUTCDate();
@@ -180,14 +180,14 @@ module.exports = async (client, interaction) => {
   } catch (error) {
     logger.error(`Interaction error: ${error.stack || error.message}`);
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'An error occurred while processing the interaction.', ephemeral: true }).catch(() => {});
+      await interaction.followUp({ content: 'An error occurred while processing the interaction.', flags: MessageFlags.Ephemeral }).catch(() => {});
     } else {
-      await interaction.reply({ content: 'An error occurred while processing the interaction.', ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: 'An error occurred while processing the interaction.', flags: MessageFlags.Ephemeral }).catch(() => {});
     }
     return;
   }
 
   if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) && !interaction.replied && !interaction.deferred && !interaction.customId?.startsWith('ticketsetup_')) {
-    await interaction.reply({ content: 'This interaction is no longer valid or the session has expired. Please reopen the dashboard or retry the command.', ephemeral: true }).catch(() => {});
+    await interaction.reply({ content: 'This interaction is no longer valid or the session has expired. Please reopen the dashboard or retry the command.', flags: MessageFlags.Ephemeral }).catch(() => {});
   }
 };

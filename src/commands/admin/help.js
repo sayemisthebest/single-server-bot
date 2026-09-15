@@ -21,7 +21,7 @@ module.exports = {
       '!afterpost <message_link>',
       '!topposter #channel',
       '!nonreactors <message_link>',
-      '!postcount #channel',
+      '!postcount #channel [YYYY-MM]',
       '',
       'Direct Message Commands',
       '!dm <@user|user_id> <message>',

@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, EmbedBuilder, MessageFlags } = require('discord.js');
 const { errorEmbed, infoEmbed } = require('../../utils/embeds');
 const { db } = require('../../database');
 const deleteSession = require('./deleteSession');
@@ -134,7 +134,7 @@ async function handleInteraction(interaction) {
   }
 
   if (!isAuthorized(interaction.member)) {
-    await interaction.reply({ content: 'You are not authorized to use Message Management.', ephemeral: true });
+    await interaction.reply({ content: 'You are not authorized to use Message Management.', flags: MessageFlags.Ephemeral });
     return true;
   }
 
@@ -166,7 +166,7 @@ async function handleInteraction(interaction) {
     const channelId = interaction.values[0];
     const channel = interaction.guild.channels.cache.get(channelId);
     if (!channel || !channel.isTextBased()) {
-      await interaction.reply({ embeds: [errorEmbed('Invalid Channel', 'Unable to access that channel.')], ephemeral: true });
+      await interaction.reply({ embeds: [errorEmbed('Invalid Channel', 'Unable to access that channel.')], flags: MessageFlags.Ephemeral });
       return true;
     }
 
@@ -186,7 +186,7 @@ async function handleInteraction(interaction) {
   if (interaction.isStringSelectMenu()) {
     const session = deleteSession.getSession(interaction.user.id);
     if (!session) {
-      await interaction.reply({ content: 'Session expired or invalid.', ephemeral: true });
+      await interaction.reply({ content: 'Session expired or invalid.', flags: MessageFlags.Ephemeral });
       return true;
     }
 
@@ -218,7 +218,7 @@ async function handleInteraction(interaction) {
       const selectedUserId = interaction.values[0];
       const targetUser = await interaction.client.users.fetch(selectedUserId).catch(() => null);
       if (!targetUser) {
-        await interaction.reply({ embeds: [errorEmbed('User Not Found', 'Could not resolve the selected user.')], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed('User Not Found', 'Could not resolve the selected user.')], flags: MessageFlags.Ephemeral });
         return true;
       }
       deleteSession.updateSession(interaction.user.id, { type: 'delete_user_count', user: targetUser });
@@ -230,26 +230,26 @@ async function handleInteraction(interaction) {
   if (interaction.customId === 'mm_confirm_delete') {
     const session = deleteSession.getSession(interaction.user.id);
     if (!session || !session.followUp) {
-      await interaction.reply({ content: 'No active delete operation found.', ephemeral: true });
+      await interaction.reply({ content: 'No active delete operation found.', flags: MessageFlags.Ephemeral });
       return true;
     }
 
     const channel = interaction.guild.channels.cache.get(session.followUp.channelId);
     if (!channel || !channel.isTextBased()) {
-      await interaction.reply({ embeds: [errorEmbed('Invalid Channel', 'Unable to access the selected channel.')], ephemeral: true });
+      await interaction.reply({ embeds: [errorEmbed('Invalid Channel', 'Unable to access the selected channel.')], flags: MessageFlags.Ephemeral });
       return true;
     }
 
     const botHasPerms = await ensureBulkPermissions(channel);
     if (!botHasPerms) {
-      await interaction.reply({ embeds: [errorEmbed('Missing Permissions', 'The bot requires Manage Messages, View Channel, and Read Message History permissions.')], ephemeral: true });
+      await interaction.reply({ embeds: [errorEmbed('Missing Permissions', 'The bot requires Manage Messages, View Channel, and Read Message History permissions.')], flags: MessageFlags.Ephemeral });
       return true;
     }
 
     await interaction.update({ content: 'Starting deletion... this may take a moment.', embeds: [], components: [] });
     let progressMessage = null;
     try {
-      progressMessage = await interaction.followUp({ content: 'Preparing deletion...', ephemeral: true, fetchReply: true });
+      progressMessage = await interaction.followUp({ content: 'Preparing deletion...', flags: MessageFlags.Ephemeral, fetchReply: true });
     } catch (error) {
       logger.warn(`Unable to create deletion progress message: ${error.message}`);
     }
@@ -287,14 +287,14 @@ async function handleInteraction(interaction) {
       if (progressMessage) {
         await editProgressMessage({ content: `Deletion complete. Deleted: ${result.deleted}. Skipped: ${result.skipped}. Failed: ${result.failed}.`, components: [] });
       } else {
-        await interaction.followUp({ content: `Deletion complete. Deleted: ${result.deleted}. Skipped: ${result.skipped}. Failed: ${result.failed}.`, ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: `Deletion complete. Deleted: ${result.deleted}. Skipped: ${result.skipped}. Failed: ${result.failed}.`, flags: MessageFlags.Ephemeral }).catch(() => {});
       }
     } catch (error) {
       logger.error(`Delete operation failed: ${error.stack || error.message}`);
       if (progressMessage) {
         await editProgressMessage({ content: 'An error occurred during deletion. Please check bot permissions and try again.', components: [] });
       } else {
-        await interaction.followUp({ content: 'An error occurred during deletion. Please check bot permissions and try again.', ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: 'An error occurred during deletion. Please check bot permissions and try again.', flags: MessageFlags.Ephemeral }).catch(() => {});
       }
     }
 
@@ -319,7 +319,7 @@ async function handleFollowUpMessage(message) {
   if (session.followUp.type === 'delete_recent_custom' || session.followUp.type === 'delete_user_custom') {
     const count = parseRecentCount(message.content.trim());
     if (count === null) {
-      await message.reply({ embeds: [errorEmbed('Invalid Number', 'Please enter a number between 1 and 5000.')], ephemeral: true });
+      await message.reply({ embeds: [errorEmbed('Invalid Number', 'Please enter a number between 1 and 5000.')] });
       return true;
     }
     const nextType = session.followUp.type === 'delete_recent_custom' ? 'delete_recent_confirm' : 'delete_user_confirm';
@@ -368,7 +368,7 @@ async function handleFollowUpMessage(message) {
     }
 
     if (!targetUser) {
-      await message.reply({ embeds: [errorEmbed('User Not Found', 'Could not resolve a valid user from that input.')], ephemeral: true });
+      await message.reply({ embeds: [errorEmbed('User Not Found', 'Could not resolve a valid user from that input.')] });
       return true;
     }
 

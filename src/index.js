@@ -22,7 +22,7 @@ client.dashboardHandler = new DashboardHandler(client);
 const messageManager = require('./modules/messageManagement');
 client.messageManager = messageManager;
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   logger.info('Bot Ready');
   const readyModule = require('./events/ready');
   await readyModule(client);

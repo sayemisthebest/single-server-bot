@@ -1,5 +1,5 @@
 const { db } = require('../../database');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, StringSelectMenuBuilder, RoleSelectMenuBuilder, EmbedBuilder, ChannelType } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, StringSelectMenuBuilder, RoleSelectMenuBuilder, EmbedBuilder, ChannelType, MessageFlags } = require('discord.js');
 const { successEmbed, errorEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
 
@@ -218,7 +218,7 @@ module.exports = {
         }
       } catch (error) {
         collector.stop('error');
-        await interaction.followUp({ content: 'An error occurred during ticket setup. Please try again.', ephemeral: true }).catch(() => {});
+        await interaction.followUp({ content: 'An error occurred during ticket setup. Please try again.', flags: MessageFlags.Ephemeral }).catch(() => {});
       }
     });
 

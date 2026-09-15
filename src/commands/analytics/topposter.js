@@ -1,4 +1,4 @@
-const { AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const { errorEmbed, successEmbed, warningEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
 
@@ -104,13 +104,13 @@ module.exports = {
     const isInteraction = typeof target.isButton === 'function' || typeof target.isSelectMenu === 'function' || typeof target.isCommand === 'function';
     const member = target.member;
     if (!hasStaffPermission(member)) {
-      await target.reply({ embeds: [errorEmbed('Access Denied', 'Only staff with Manage Roles or Administrator can use this command.')], ephemeral: isInteraction });
+      await target.reply({ embeds: [errorEmbed('Access Denied', 'Only staff with Manage Roles or Administrator can use this command.')], ...(isInteraction ? { flags: MessageFlags.Ephemeral } : {}) });
       return;
     }
 
     const channel = getChannelFromTarget(target, args);
     if (!channel || !channel.isTextBased() || typeof channel.messages?.fetch !== 'function') {
-      await target.reply({ embeds: [errorEmbed('Invalid Channel', 'Please mention a valid text channel or provide a channel ID.')], ephemeral: isInteraction });
+      await target.reply({ embeds: [errorEmbed('Invalid Channel', 'Please mention a valid text channel or provide a channel ID.')], ...(isInteraction ? { flags: MessageFlags.Ephemeral } : {}) });
       return;
     }
 
@@ -122,7 +122,7 @@ module.exports = {
     }
 
     if (isInteraction && !target.deferred && !target.replied) {
-      await target.deferReply({ ephemeral: true });
+      await target.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
     const { startDate, endDate, startISO, endISO } = getMonthRange(monthInfo.year, monthInfo.month);
@@ -157,14 +157,14 @@ module.exports = {
         .sort((a, b) => b.messages - a.messages || b.words - a.words)
         .slice(0, 50);
     } catch (error) {
-      await sendInteractionResponse(target, { embeds: [errorEmbed('Unable to Read Messages', `The bot could not read messages from ${channel}. ${error.message}`)], ephemeral: isInteraction });
+      await sendInteractionResponse(target, { embeds: [errorEmbed('Unable to Read Messages', `The bot could not read messages from ${channel}. ${error.message}`)], ...(isInteraction ? { flags: MessageFlags.Ephemeral } : {}) });
       return;
     }
 
     if (!rows || rows.length === 0) {
       await sendInteractionResponse(target, {
         embeds: [warningEmbed('No Data', `No message activity was found in ${channel} for ${monthLabel}.`)],
-        ephemeral: isInteraction,
+        ...(isInteraction ? { flags: MessageFlags.Ephemeral } : {}),
       });
       return;
     }
@@ -175,7 +175,7 @@ module.exports = {
     await sendInteractionResponse(target, {
       embeds: [successEmbed('Monthly Top Poster Report', `Top 50 results exported for ${channel} for ${monthLabel}.`)],
       files: [attachment],
-      ephemeral: isInteraction,
+      ...(isInteraction ? { flags: MessageFlags.Ephemeral } : {}),
     });
   },
 };

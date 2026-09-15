@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { createNavigationButtons, createChannelSelect, createRoleSelect } = require('../../ui/components');
 const { infoEmbed, errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
@@ -30,13 +30,13 @@ async function handleReminderCreate(interaction) {
   const user = interaction.user;
   if (!interaction.guild) return;
   if (!hasStaffPermission(interaction.member)) {
-    await interaction.reply({ embeds: [errorEmbed('Access Denied', 'Only staff with Manage Roles or Administrator can use this module.')], ephemeral: true });
+    await interaction.reply({ embeds: [errorEmbed('Access Denied', 'Only staff with Manage Roles or Administrator can use this module.')], flags: MessageFlags.Ephemeral });
     return;
   }
 
   const guildConfig = require('../../database').db.prepare('SELECT staff_channel_id FROM guild_configs WHERE guild_id = ?').get(interaction.guild.id);
   if (guildConfig?.staff_channel_id && interaction.channel.id !== guildConfig.staff_channel_id) {
-    await interaction.reply({ embeds: [errorEmbed('Staff Channel Only', 'Reminder management commands must be used in the private staff channel.')], ephemeral: true });
+    await interaction.reply({ embeds: [errorEmbed('Staff Channel Only', 'Reminder management commands must be used in the private staff channel.')], flags: MessageFlags.Ephemeral });
     return;
   }
 

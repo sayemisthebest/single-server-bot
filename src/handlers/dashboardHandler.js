@@ -8,7 +8,7 @@ const { createExportEmbed, getExportComponents } = require('../ui/exports');
 const { createHelpEmbed, getHelpComponents } = require('../ui/help');
 const { createDirectMessagesEmbed, getDirectMessageComponents } = require('../ui/directMessages');
 const { createMessageManagementEmbed, getMessageManagementComponents } = require('../ui/messageManagement');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { hasStaffPermission } = require('../utils/permissions');
 const { db } = require('../database');
 const { errorEmbed, infoEmbed, successEmbed } = require('../utils/embeds');
@@ -254,7 +254,7 @@ class DashboardHandler {
       case 'export_analytics':
       case 'export_tickets':
       case 'export_logs':
-        await interaction.reply({ content: 'This dashboard feature is under construction.', ephemeral: true });
+        await interaction.reply({ content: 'This dashboard feature is under construction.', flags: MessageFlags.Ephemeral });
         return true;
       default:
         return false;
@@ -308,8 +308,8 @@ class DashboardHandler {
   }
 
   async handleTicketCreatePanel(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.followUp({ content: 'Please run !ticketsetup in the staff channel to create the ticket panel.', ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Please run !ticketsetup in the staff channel to create the ticket panel.', flags: MessageFlags.Ephemeral });
   }
 
   async handleTicketSettings(interaction) {
@@ -324,18 +324,18 @@ class DashboardHandler {
   }
 
   async handleTicketClose(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.followUp({ content: 'Please use !ticketclose inside a ticket channel to close the ticket.', ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Please use !ticketclose inside a ticket channel to close the ticket.', flags: MessageFlags.Ephemeral });
   }
 
   async handleTicketClaim(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.followUp({ content: 'Please use !ticketclaim inside a ticket channel to claim the ticket.', ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Please use !ticketclaim inside a ticket channel to claim the ticket.', flags: MessageFlags.Ephemeral });
   }
 
   async handleTicketTranscript(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.followUp({ content: 'Please use !tickettranscript inside the ticket channel to generate a transcript.', ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Please use !tickettranscript inside the ticket channel to generate a transcript.', flags: MessageFlags.Ephemeral });
   }
 
   async handleReminderCenter(interaction) {
@@ -414,11 +414,11 @@ class DashboardHandler {
   }
 
   async handleReminderEdit(interaction) {
-    await interaction.reply({ embeds: [infoEmbed('Reminder Edit', 'Use View Reminders and select a reminder by ID to edit. This feature is coming soon.')], ephemeral: true });
+    await interaction.reply({ embeds: [infoEmbed('Reminder Edit', 'Use View Reminders and select a reminder by ID to edit. This feature is coming soon.')], flags: MessageFlags.Ephemeral });
   }
 
   async handleReminderDelete(interaction) {
-    await interaction.reply({ embeds: [infoEmbed('Reminder Delete', 'Use View Reminders and note the reminder ID, then run the delete command or use the delete workflow once available.')], ephemeral: true });
+    await interaction.reply({ embeds: [infoEmbed('Reminder Delete', 'Use View Reminders and note the reminder ID, then run the delete command or use the delete workflow once available.')], flags: MessageFlags.Ephemeral });
   }
 
   async handleReminderPageChange(interaction, direction) {
@@ -474,11 +474,11 @@ class DashboardHandler {
   async handleDirectMessageConfirm(interaction) {
     const session = this.sessions.get(interaction.user.id);
     if (!session?.followUp || session.followUp.type !== 'dm_confirm') {
-      await interaction.reply({ content: 'No active direct message workflow found.', ephemeral: true });
+      await interaction.reply({ content: 'No active direct message workflow found.', flags: MessageFlags.Ephemeral });
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const { recipients, content, attachments, label, mode } = session.followUp;
     const sessionId = `${interaction.user.id}-${Date.now()}`;
     await interaction.editReply({ content: `Sending ${mode === 'mass' ? 'mass' : 'single'} DM to ${recipients.length} recipient(s)...` });
@@ -499,12 +499,12 @@ class DashboardHandler {
   async handleDirectMessageCancel(interaction) {
     const session = this.sessions.get(interaction.user.id);
     if (!session?.followUp || session.followUp.type !== 'dm_confirm') {
-      await interaction.reply({ content: 'No direct message workflow to cancel.', ephemeral: true });
+      await interaction.reply({ content: 'No direct message workflow to cancel.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     delete session.followUp;
-    await interaction.reply({ content: 'Direct message workflow canceled.', ephemeral: true });
+    await interaction.reply({ content: 'Direct message workflow canceled.', flags: MessageFlags.Ephemeral });
   }
 
   async handleSelectMenu(interaction) {
@@ -553,7 +553,26 @@ class DashboardHandler {
 
     if (interaction.customId === 'postcount_channel_select') {
       const channelId = interaction.values[0];
-      await require('../commands/analytics/postcount').execute(interaction, [channelId]);
+      const monthOptions = [];
+      const now = new Date();
+      for (let index = 0; index < 12; index += 1) {
+        const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - index, 1));
+        monthOptions.push({
+          label: date.toLocaleString('en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' }),
+          value: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
+        });
+      }
+      this.sessions.get(interaction.user.id).followUp = { type: 'postcount', channelId };
+      const monthSelect = require('../ui/components').createMonthSelect('postcount_month_select', 'Select a month', monthOptions);
+      await interaction.update({ content: 'Select the month to count posts for.', embeds: [], components: [monthSelect, require('../ui/components').createNavigationButtons()] });
+      return true;
+    }
+
+    if (interaction.customId === 'postcount_month_select') {
+      const session = this.sessions.get(interaction.user.id);
+      if (!session?.followUp || session.followUp.type !== 'postcount') return false;
+      await require('../commands/analytics/postcount').execute(interaction, [session.followUp.channelId, interaction.values[0]]);
+      delete session.followUp;
       return true;
     }
 
