@@ -3,6 +3,7 @@ const path = require('path');
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed, warningEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { createCSV } = require('../../utils/csv');
 
 module.exports = {
   name: 'roleremove',
@@ -95,13 +96,13 @@ module.exports = {
     await message.reply({ embeds: [successEmbed('Role Removal Complete', summaryLines.join('\n'))] });
 
     const csvRows = [
-      ...removed.map((username) => `${username},Removed`),
-      ...skippedNotFound.map((username) => `${username},Skipped - Not Found`),
-      ...skippedNoRole.map((username) => `${username},Skipped - No Role`),
-      ...failedMultiple.map((username) => `${username},Failed - Multiple Matches`),
-      ...failed.map((username) => `${username},Failed - Error`),
+      ...removed.map((username) => [username, 'Removed']),
+      ...skippedNotFound.map((username) => [username, 'Skipped - Not Found']),
+      ...skippedNoRole.map((username) => [username, 'Skipped - No Role']),
+      ...failedMultiple.map((username) => [username, 'Failed - Multiple Matches']),
+      ...failed.map((username) => [username, 'Failed - Error']),
     ];
-    const csv = 'Username,Status\n' + csvRows.join('\n');
+    const csv = createCSV(['Username', 'Status'], csvRows);
     const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleremove.csv`);
     fs.writeFileSync(outputPath, csv, 'utf8');
     const csvAttachment = new AttachmentBuilder(outputPath).setName('roleremove.csv');

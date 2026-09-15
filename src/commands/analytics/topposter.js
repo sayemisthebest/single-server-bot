@@ -1,6 +1,7 @@
 const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const { errorEmbed, successEmbed, warningEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { createCSV } = require('../../utils/csv');
 
 function parseMonth(monthText) {
   if (!monthText) return null;
@@ -169,7 +170,7 @@ module.exports = {
       return;
     }
 
-    const csv = 'Username,Messages\n' + rows.map((row) => `${row.username},${row.messages}`).join('\n');
+    const csv = createCSV(['Username', 'Messages'], rows.map((row) => [row.username, row.messages]));
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: `topposter-${monthLabel}.csv` });
 
     await sendInteractionResponse(target, {

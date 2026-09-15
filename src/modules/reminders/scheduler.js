@@ -60,6 +60,7 @@ async function deliverReminder(client, reminder) {
   const metadata = reminder.metadata ? JSON.parse(reminder.metadata) : {};
   const attachments = metadata.attachments || [];
   const fileObjects = attachments.map((item) => ({ attachment: item.url, name: item.name }));
+  const embed = buildReminderEmbed(null, reminder);
   const result = { status: 'sent', success: true, failureReason: null };
 
   try {

@@ -1,6 +1,7 @@
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { createCSV } = require('../../utils/csv');
 
 function parseMessageLink(link) {
   const regex = /https?:\/\/(?:ptb|canary\.)?discord(?:app)?\.com\/channels\/(?<guild>\d+)\/(?<channel>\d+)\/(?<message>\d+)/;
@@ -78,12 +79,9 @@ module.exports = {
 
     const nonReactors = eligibleMembers
       .filter((member) => !reactionUsers.has(member.id))
-      .map((member) => [member.user.username, member.displayName, member.id]);
+      .map((member) => [member.user.username]);
 
-    const csv = [
-      'Username,Display Name,Discord ID',
-      ...nonReactors.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')),
-    ].join('\n');
+    const csv = createCSV(['Username'], nonReactors);
 
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: 'role-nonreactors.csv' });
     await message.reply({

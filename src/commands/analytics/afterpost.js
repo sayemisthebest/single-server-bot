@@ -1,6 +1,7 @@
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { createCSV } = require('../../utils/csv');
 
 function parseMessageLink(link) {
   const regex = /https?:\/\/(?:ptb|canary\.)?discord(?:app)?\.com\/channels\/(?<guild>\d+)\/(?<channel>\d+)\/(?<message>\d+)/;
@@ -64,7 +65,10 @@ module.exports = {
       });
     }
 
-    const csv = 'Username,Display Name,Discord ID,Message Timestamp,Message Link,Message Count\n' + rows.map((row) => `${row.username},${row.displayName},${row.id},${row.timestamp},${row.link},${row.count}`).join('\n');
+    const csv = createCSV(
+      ['Username', 'Display Name', 'Discord ID', 'Message Timestamp', 'Message Link', 'Message Count'],
+      rows.map((row) => [row.username, row.displayName, row.id, row.timestamp, row.link, row.count]),
+    );
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: 'afterpost.csv' });
 
     await message.reply({

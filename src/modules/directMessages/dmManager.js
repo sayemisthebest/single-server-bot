@@ -3,6 +3,7 @@ const path = require('path');
 const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const { errorEmbed, infoEmbed, successEmbed } = require('../../utils/embeds');
 const logger = require('../../utils/logger');
+const { createCSV } = require('../../utils/csv');
 
 function isSnowflake(value) {
   return typeof value === 'string' && /^\d{17,19}$/.test(value);
@@ -119,23 +120,11 @@ function createDMEmbed(author, content) {
     .setTimestamp();
 }
 
-function escapeCSV(value) {
-  if (value == null) return '';
-  const normalized = value.toString().replace(/\r?\n/g, ' ');
-  if (/[",\n]/.test(normalized)) {
-    return `"${normalized.replace(/"/g, '""')}"`;
-  }
-  return normalized;
-}
-
 function buildReportFile(results, sessionId) {
-  const csvRows = results.map((row) => [
-    row.id,
-    row.tag,
-    row.status,
-    row.error || '',
-  ].map(escapeCSV).join(','));
-  const csv = ['Recipient ID,Recipient Tag,Status,Error', ...csvRows].join('\n');
+  const csv = createCSV(
+    ['Recipient ID', 'Recipient Tag', 'Status', 'Error'],
+    results.map((row) => [row.id, row.tag, row.status, row.error || '']),
+  );
   const fileName = `${sessionId}-dm-report.csv`;
   const outputPath = path.join(__dirname, '..', '..', '..', 'logs', fileName);
   fs.writeFileSync(outputPath, csv, 'utf8');

@@ -3,6 +3,7 @@ const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
 const fs = require('fs');
 const path = require('path');
+const { createCSV } = require('../../utils/csv');
 
 module.exports = {
   name: 'roleexport',
@@ -47,8 +48,10 @@ module.exports = {
       avatar: member.user.displayAvatarURL({ dynamic: true }),
     }));
 
-    const header = 'Username,Display Name,Nickname,Discord ID,Joined Server Date,Account Creation Date,Current Roles,Boost Status,Bot/Not Bot,Avatar URL\n';
-    const csv = header + rows.map((row) => Object.values(row).map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = createCSV(
+      ['Username', 'Display Name', 'Nickname', 'Discord ID', 'Joined Server Date', 'Account Creation Date', 'Current Roles', 'Boost Status', 'Bot/Not Bot', 'Avatar URL'],
+      rows.map((row) => Object.values(row)),
+    );
     const outputPath = path.join(__dirname, '..', '..', '..', 'logs', `${message.id}-roleexport.csv`);
     fs.writeFileSync(outputPath, csv, 'utf8');
     const attachment = new AttachmentBuilder(outputPath).setName('roleexport.csv');

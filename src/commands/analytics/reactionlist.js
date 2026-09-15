@@ -1,6 +1,7 @@
 const { AttachmentBuilder } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 const { hasStaffPermission } = require('../../utils/permissions');
+const { createCSV } = require('../../utils/csv');
 
 function parseMessageLink(link) {
   const regex = /https?:\/\/(?:ptb|canary\.)?discord(?:app)?\.com\/channels\/(?<guild>\d+)\/(?<channel>\d+)\/(?<message>\d+)/;
@@ -64,7 +65,10 @@ module.exports = {
     const nonReacted = members.filter((member) => !reactedIds.has(member.id)).map((member) => ({ id: member.id, username: member.user.username, displayName: member.displayName, nickname: member.nickname || '', reaction: 'No Reaction' }));
 
     const csvRows = [...reactionUsers, ...nonReacted];
-    const csv = 'Username,Display Name,Nickname,Discord ID,Reaction Emoji\n' + csvRows.map((row) => `${row.username},${row.displayName},${row.nickname},${row.id},${row.reaction}`).join('\n');
+    const csv = createCSV(
+      ['Username', 'Display Name', 'Nickname', 'Discord ID', 'Reaction Emoji'],
+      csvRows.map((row) => [row.username, row.displayName, row.nickname, row.id, row.reaction]),
+    );
     const attachment = new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: 'reactionlist.csv' });
 
     await message.reply({
